@@ -2,7 +2,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
-import '../services/seed_service.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -50,7 +49,9 @@ class AuthService {
           'email': user.email ?? '',
           'phone': user.phoneNumber ?? '',
           'avatar': user.photoURL ?? '',
-          'role': user.email == 'ngocvcl2005@gmail.com' ? 'owner' : 'user', // Cấp role hệ thống
+          'role': user.email == 'ngocvcl2005@gmail.com'
+              ? 'owner'
+              : 'user', // Cấp role hệ thống
           'points': 0,
           'createdAt': FieldValue.serverTimestamp(),
         });
@@ -61,9 +62,6 @@ class AuthService {
           await userRef.update({'role': 'owner'});
         }
       }
-
-      // Khi người dùng đã có Identity Auth hợp lệ, tiến hành nhồi dữ liệu (Seed Data)
-      await SeedService().seedSportFields();
     }
 
     return userCredential;
@@ -80,17 +78,19 @@ class AuthService {
     final user = _auth.currentUser;
     if (user == null) return;
 
-    final userRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+    final userRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid);
     final doc = await userRef.get();
     List favorites = doc.data()?['favorites'] ?? [];
 
     if (favorites.contains(fieldId)) {
       await userRef.update({
-        'favorites': FieldValue.arrayRemove([fieldId])
+        'favorites': FieldValue.arrayRemove([fieldId]),
       });
     } else {
       await userRef.update({
-        'favorites': FieldValue.arrayUnion([fieldId])
+        'favorites': FieldValue.arrayUnion([fieldId]),
       });
     }
   }
@@ -107,7 +107,12 @@ class AuthService {
   }
 
   // Đăng ký bằng Email và Mật khẩu
-  Future<UserCredential?> registerWithEmailAndPassword(String email, String password, String name, String phone) async {
+  Future<UserCredential?> registerWithEmailAndPassword(
+    String email,
+    String password,
+    String name,
+    String phone,
+  ) async {
     final userCredential = await _auth.createUserWithEmailAndPassword(
       email: email,
       password: password,
@@ -115,8 +120,10 @@ class AuthService {
     final user = userCredential.user;
     if (user != null) {
       await user.updateDisplayName(name);
-      
-      final userRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+
+      final userRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid);
       await userRef.set({
         'id': user.uid,
         'name': name,
@@ -127,14 +134,15 @@ class AuthService {
         'points': 0,
         'createdAt': FieldValue.serverTimestamp(),
       });
-
-      await SeedService().seedSportFields();
     }
     return userCredential;
   }
 
   // Đăng nhập bằng Email và Mật khẩu
-  Future<UserCredential> signInWithEmailAndPassword(String email, String password) async {
+  Future<UserCredential> signInWithEmailAndPassword(
+    String email,
+    String password,
+  ) async {
     return await _auth.signInWithEmailAndPassword(
       email: email,
       password: password,

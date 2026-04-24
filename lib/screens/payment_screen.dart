@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../models/mock_data.dart';
+import '../models/sport_field.dart';
 import '../services/booking_service.dart';
 import 'main_dashboard.dart';
 

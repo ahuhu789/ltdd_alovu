@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/field_service.dart';
-import '../models/mock_data.dart';
+import '../models/sport_field.dart';
 
 class FieldManagementScreen extends StatelessWidget {
   const FieldManagementScreen({super.key});

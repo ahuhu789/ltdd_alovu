@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import '../models/mock_data.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
+import '../models/sport_field.dart';
+import '../services/field_service.dart';
 import 'payment_screen.dart';
 
 class DetailScreen extends StatefulWidget {
@@ -14,6 +17,16 @@ class DetailScreen extends StatefulWidget {
 class _DetailScreenState extends State<DetailScreen> {
   String? selectedCourtName;
   String? selectedTime;
+  List<Review> _reviews = [];
+  double _currentRating = 0.0;
+  final FieldService _fieldService = FieldService();
+
+  @override
+  void initState() {
+    super.initState();
+    _reviews = List.from(widget.field.reviews);
+    _currentRating = widget.field.rating;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -113,12 +126,18 @@ class _DetailScreenState extends State<DetailScreen> {
                     bottom: 16,
                     right: 16,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.black54,
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: const Text('1/3', style: TextStyle(color: Colors.white, fontSize: 12)),
+                      child: const Text(
+                        '1/3',
+                        style: TextStyle(color: Colors.white, fontSize: 12),
+                      ),
                     ),
                   ),
                 ],
@@ -173,7 +192,7 @@ class _DetailScreenState extends State<DetailScreen> {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              '${widget.field.rating}',
+                              '${_currentRating.toStringAsFixed(1)}',
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: Colors.brown,
@@ -211,9 +230,20 @@ class _DetailScreenState extends State<DetailScreen> {
                               },
                               child: const Row(
                                 children: [
-                                  Icon(Icons.map_outlined, color: Colors.blue, size: 16),
+                                  Icon(
+                                    Icons.map_outlined,
+                                    color: Colors.blue,
+                                    size: 16,
+                                  ),
                                   SizedBox(width: 4),
-                                  Text('Xem trên bản đồ (Google Maps)', style: TextStyle(color: Colors.blue, fontSize: 13, fontWeight: FontWeight.bold)),
+                                  Text(
+                                    'Xem trên bản đồ (Google Maps)',
+                                    style: TextStyle(
+                                      color: Colors.blue,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -274,12 +304,13 @@ class _DetailScreenState extends State<DetailScreen> {
                             GridView.builder(
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 3,
-                                childAspectRatio: 2.5,
-                                crossAxisSpacing: 10,
-                                mainAxisSpacing: 10,
-                              ),
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 3,
+                                    childAspectRatio: 2.5,
+                                    crossAxisSpacing: 10,
+                                    mainAxisSpacing: 10,
+                                  ),
                               itemCount: court.slots.length,
                               itemBuilder: (context, slotIndex) {
                                 final slot = court.slots[slotIndex];
@@ -301,15 +332,15 @@ class _DetailScreenState extends State<DetailScreen> {
                                     decoration: BoxDecoration(
                                       color: slot.isAvailable
                                           ? (isSelected
-                                              ? Colors.green[600]
-                                              : Colors.white)
+                                                ? Colors.green[600]
+                                                : Colors.white)
                                           : Colors.grey[200],
                                       borderRadius: BorderRadius.circular(8),
                                       border: Border.all(
                                         color: slot.isAvailable
                                             ? (isSelected
-                                                ? Colors.green[600]!
-                                                : Colors.green[300]!)
+                                                  ? Colors.green[600]!
+                                                  : Colors.green[300]!)
                                             : Colors.grey[300]!,
                                       ),
                                     ),
@@ -319,8 +350,8 @@ class _DetailScreenState extends State<DetailScreen> {
                                         fontSize: 12,
                                         color: slot.isAvailable
                                             ? (isSelected
-                                                ? Colors.white
-                                                : Colors.green[800])
+                                                  ? Colors.white
+                                                  : Colors.green[800])
                                             : Colors.grey[500],
                                         fontWeight: FontWeight.bold,
                                         decoration: slot.isAvailable
@@ -340,9 +371,22 @@ class _DetailScreenState extends State<DetailScreen> {
 
                   const Divider(height: 40, thickness: 1),
                   // Đánh giá của khách hàng
-                  const Text(
-                    'Đánh giá từ khách hàng',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Đánh giá từ khách hàng',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => _showReviewBottomSheet(context),
+                        icon: const Icon(Icons.edit, size: 18),
+                        label: const Text('Viết đánh giá'),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 16),
 
@@ -350,17 +394,28 @@ class _DetailScreenState extends State<DetailScreen> {
                     padding: EdgeInsets.zero,
                     physics: const NeverScrollableScrollPhysics(),
                     shrinkWrap: true,
-                    itemCount: widget.field.reviews.length,
+                    itemCount: _reviews.length,
                     itemBuilder: (context, index) {
-                      final review = widget.field.reviews[index];
+                      final review = _reviews[index];
+                      final currentUser = FirebaseAuth.instance.currentUser;
+                      final isLiked =
+                          currentUser != null &&
+                          review.likedBy.contains(currentUser.uid);
+
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 16.0),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             CircleAvatar(
-                              backgroundImage: NetworkImage(review.avatarUrl),
+                              backgroundImage: review.avatarUrl.isNotEmpty
+                                  ? NetworkImage(review.avatarUrl)
+                                  : null,
+                              backgroundColor: Colors.grey[300],
                               radius: 20,
+                              child: review.avatarUrl.isEmpty
+                                  ? const Icon(Icons.person, color: Colors.grey)
+                                  : null,
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -405,6 +460,45 @@ class _DetailScreenState extends State<DetailScreen> {
                                       color: Colors.black87,
                                     ),
                                   ),
+                                  // Nút chức năng Like
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      InkWell(
+                                        onTap: () => _toggleLike(review),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 4.0,
+                                            horizontal: 8.0,
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                isLiked
+                                                    ? Icons.thumb_up
+                                                    : Icons
+                                                          .thumb_up_alt_outlined,
+                                                size: 14,
+                                                color: isLiked
+                                                    ? Colors.blue
+                                                    : Colors.grey,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                '${review.likedBy.length}',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: isLiked
+                                                      ? Colors.blue
+                                                      : Colors.grey,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ],
                               ),
                             ),
@@ -438,5 +532,190 @@ class _DetailScreenState extends State<DetailScreen> {
         Text(text, style: const TextStyle(fontSize: 13, color: Colors.black87)),
       ],
     );
+  }
+
+  void _showReviewBottomSheet(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng đăng nhập để đánh giá')),
+      );
+      return;
+    }
+
+    if (_reviews.any((r) => r.userId == user.uid)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bạn đã đánh giá sân này rồi!')),
+      );
+      return;
+    }
+
+    double selectedRating = 5.0;
+    final commentController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            top: 20,
+            left: 20,
+            right: 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Đánh giá của bạn',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              StatefulBuilder(
+                builder: (context, setModalState) {
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(5, (index) {
+                      return IconButton(
+                        icon: Icon(
+                          index < selectedRating
+                              ? Icons.star
+                              : Icons.star_border,
+                          color: Colors.amber,
+                          size: 32,
+                        ),
+                        onPressed: () {
+                          setModalState(() {
+                            selectedRating = index + 1.0;
+                          });
+                        },
+                      );
+                    }),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: commentController,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: 'Nhập chia sẻ của bạn về sân này...',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green[600],
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () async {
+                    if (commentController.text.trim().isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Vui lòng nhập nội dung!'),
+                        ),
+                      );
+                      return;
+                    }
+                    Navigator.pop(context); // Đóng modal
+
+                    final now = DateTime.now();
+                    final formattedDate = DateFormat(
+                      'dd/MM/yyyy HH:mm',
+                    ).format(now);
+                    final newReview = Review(
+                      userId: user.uid,
+                      userName: user.displayName ?? 'Khách',
+                      avatarUrl: user.photoURL ?? '',
+                      rating: selectedRating,
+                      comment: commentController.text.trim(),
+                      date: formattedDate,
+                    );
+
+                    try {
+                      await _fieldService.addReview(widget.field.id, newReview);
+
+                      setState(() {
+                        _reviews.add(newReview);
+                        // Tính lại rating local
+                        double sum = 0;
+                        for (var r in _reviews) {
+                          sum += r.rating;
+                        }
+                        _currentRating = sum / _reviews.length;
+                      });
+
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Cảm ơn bạn đã đánh giá!'),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text(e.toString())));
+                      }
+                    }
+                  },
+                  child: const Text(
+                    'GỬI ĐÁNH GIÁ',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _toggleLike(Review review) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng đăng nhập để thích')),
+      );
+      return;
+    }
+
+    try {
+      await _fieldService.toggleReviewLike(
+        widget.field.id,
+        review.userId,
+        user.uid,
+      );
+
+      setState(() {
+        if (review.likedBy.contains(user.uid)) {
+          review.likedBy.remove(user.uid);
+        } else {
+          review.likedBy.add(user.uid);
+        }
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
+      }
+    }
   }
 }

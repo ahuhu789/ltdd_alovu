@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/field_service.dart';
-import '../models/mock_data.dart';
+import '../models/sport_field.dart';
 import 'field_management_screen.dart';
 
 class AdminDashboardScreen extends StatelessWidget {
