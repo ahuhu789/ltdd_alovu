@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/auth_service.dart';
-import '../services/seed_service.dart';
 import 'login_screen.dart';
 import 'history_screen.dart';
 
@@ -84,30 +83,7 @@ class ProfileScreen extends StatelessWidget {
                   padding: EdgeInsets.symmetric(horizontal: 16),
                   child: Divider(height: 32),
                 ),
-                // CÔNG CỤ ADMIN TEST DỮ LIỆU
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text('Công cụ Hệ thống (Test)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-                  ),
-                ),
-                _buildListTile(context, Icons.cloud_upload, 'Nạp tự động Sân giả lập (Test)', textColor: Colors.blue, onTap: () async {
-                  showDialog(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (_) => const Center(child: CircularProgressIndicator()),
-                  );
-                  await SeedService().seedSportFields();
-                  if (context.mounted) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nạp thành công! Hãy quay lại trang chủ để kiểm tra nhé.'), backgroundColor: Colors.green));
-                  }
-                }),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Divider(height: 32),
-                ),
+
                 ListTile(
                   leading: const Icon(Icons.logout, color: Colors.red),
                   title: const Text(
