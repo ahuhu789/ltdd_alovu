@@ -18,7 +18,7 @@ class SeedService {
         final docRef = _db.collection('sport_fields').doc(field.id);
         batch.set(docRef, field.toJson());
       }
-      
+
       await batch.commit();
       debugPrint('Đã bơm (seed) dữ liệu sport_fields thành công!');
     } catch (e) {
