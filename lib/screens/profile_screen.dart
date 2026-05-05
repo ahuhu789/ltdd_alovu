@@ -9,7 +9,7 @@ import 'history_screen.dart';
 import 'edit_profile_screen.dart';
 import 'favorite_screen.dart';
 import 'notification_screen.dart';
-
+import 'user_chat_screen.dart';
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
@@ -105,7 +105,12 @@ class ProfileScreen extends StatelessWidget {
                 _buildListTile(context, Icons.notifications_none, 'Cài đặt thông báo', onTap: () {
                   Navigator.push(context, MaterialPageRoute(builder: (context) => const NotificationScreen()));
                 }),
-                _buildListTile(context, Icons.help_outline, 'Trung tâm hỗ trợ'),
+                _buildListTile(context, Icons.support_agent_rounded, 'Hỗ trợ', onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const UserChatScreen()),
+                  );
+                }),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16),
                   child: Divider(height: 32),

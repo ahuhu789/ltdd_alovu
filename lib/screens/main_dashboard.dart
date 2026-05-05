@@ -1,12 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'home_screen.dart';
-import 'profile_screen.dart';
-import 'history_screen.dart';
-import 'community_screen.dart';
-import 'admin_dashboard_screen.dart';
 
+// Các trang của User
+import 'home_screen.dart';
+import 'history_screen.dart'; // Lịch đặt
+import 'community_screen.dart';
+import 'profile_screen.dart';
+
+// Các trang của Admin
+import 'admin_dashboard_screen.dart';
+// import 'revenue_screen.dart'; // Mở comment này khi bạn tạo file revenue_screen.dart
+// import 'communication_screen.dart'; // Mở comment này khi bạn tạo file communication_screen.dart
+import 'static_screen.dart';
+import 'chat_list_screen.dart';
+import 'admin_profile_screen.dart';
 class MainDashboard extends StatefulWidget {
   const MainDashboard({super.key});
 
@@ -16,7 +24,8 @@ class MainDashboard extends StatefulWidget {
 
 class _MainDashboardState extends State<MainDashboard> {
   int _selectedIndex = 0;
-  String? _role;
+  String _role = 'user'; // Mặc định là user
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -27,71 +36,117 @@ class _MainDashboardState extends State<MainDashboard> {
   Future<void> _checkUserRole() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-      if (mounted) {
-        setState(() {
-          _role = doc.data()?['role'];
-        });
+      try {
+        final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (mounted) {
+          setState(() {
+            _role = doc.data()?['role'] ?? 'user';
+            _isLoading = false;
+          });
+        }
+      } catch (e) {
+        if (mounted) setState(() => _isLoading = false);
       }
+    } else {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Menu cho User
-    final List<Widget> userScreens = [
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(color: Colors.green),
+        ),
+      );
+    }
+
+    final isAdmin = _role == 'owner' || _role == 'admin';
+
+    // 1. Cấu hình Danh sách Màn hình (Screens)
+    final List<Widget> screens = isAdmin
+        ? [
+      const AdminDashboardScreen(),
+
+      // THAY THẾ ĐOẠN NÀY:
+      const StatisticsScreen(), // Gọi class từ file static_screen.dart của bạn
+
+      const ChatListScreen(),
+      const AdminProfileScreen(),
+      const ProfileScreen(),
+    ]
+        : [
       const HomeScreen(),
       const HistoryScreen(),
       const CommunityScreen(),
       const ProfileScreen(),
     ];
 
-    // Menu cho Admin/Owner
-    final List<Widget> adminScreens = [
-      const AdminDashboardScreen(),
-      const HistoryScreen(), // Xem lịch tổng
-      const ProfileScreen(),
+    // 2. Cấu hình Thanh Menu (Bottom Navigation Bar)
+    final List<BottomNavigationBarItem> navItems = isAdmin
+        ? [
+      const BottomNavigationBarItem(
+        icon: Icon(Icons.dashboard_outlined),
+        activeIcon: Icon(Icons.dashboard),
+        label: 'Trang chủ',
+      ),
+      const BottomNavigationBarItem(
+        icon: Icon(Icons.bar_chart_outlined),
+        activeIcon: Icon(Icons.bar_chart),
+        label: 'Thống kê',
+      ),
+      const BottomNavigationBarItem(
+        icon: Icon(Icons.forum_outlined),
+        activeIcon: Icon(Icons.forum),
+        label: 'Giao tiếp',
+      ),
+      const BottomNavigationBarItem(
+        icon: Icon(Icons.person_outline),
+        activeIcon: Icon(Icons.person),
+        label: 'Tài khoản',
+      ),
+    ]
+        : [
+      const BottomNavigationBarItem(
+        icon: Icon(Icons.home_outlined),
+        activeIcon: Icon(Icons.home),
+        label: 'Khám phá',
+      ),
+      const BottomNavigationBarItem(
+        icon: Icon(Icons.calendar_today_outlined),
+        activeIcon: Icon(Icons.calendar_month),
+        label: 'Lịch',
+      ),
+      const BottomNavigationBarItem(
+        icon: Icon(Icons.groups_outlined),
+        activeIcon: Icon(Icons.groups),
+        label: 'Cộng đồng',
+      ),
+      const BottomNavigationBarItem(
+        icon: Icon(Icons.person_outline),
+        activeIcon: Icon(Icons.person),
+        label: 'Tôi',
+      ),
     ];
-
-    final screens = _role == 'owner' ? adminScreens : userScreens;
 
     return Scaffold(
       body: screens[_selectedIndex >= screens.length ? 0 : _selectedIndex],
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
-          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
+          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -2))],
         ),
         child: BottomNavigationBar(
           currentIndex: _selectedIndex >= screens.length ? 0 : _selectedIndex,
-          selectedItemColor: Colors.green[600],
-          unselectedItemColor: Colors.grey,
-          backgroundColor: Colors.white,
+
+          backgroundColor: Colors.green[600],
+          selectedItemColor: Colors.white,
+          unselectedItemColor: Colors.white60,
+
           type: BottomNavigationBarType.fixed,
           elevation: 0,
           onTap: (index) => setState(() => _selectedIndex = index),
-          items: [
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home),
-              label: 'Khám phá',
-            ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.calendar_today_outlined),
-              activeIcon: Icon(Icons.calendar_month),
-              label: 'Lịch',
-            ),
-            if (_role != 'owner')
-              const BottomNavigationBarItem(
-                icon: Icon(Icons.groups_outlined),
-                activeIcon: Icon(Icons.groups),
-                label: 'Cộng đồng',
-              ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person),
-              label: 'Tôi',
-            ),
-          ],
+          items: navItems,
         ),
       ),
     );
