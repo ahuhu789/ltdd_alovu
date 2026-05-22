@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../models/mock_data.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
+import '../models/sport_field.dart';
+import '../services/field_service.dart';
 import '../services/review_service.dart';
 import 'payment_screen.dart';
 
@@ -17,6 +20,26 @@ class _DetailScreenState extends State<DetailScreen> {
   String? selectedCourtName;
   String? selectedTime;
   final ReviewService _reviewService = ReviewService();
+  double _currentRating = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentRating = widget.field.rating;
+    
+    // Đăng ký lắng nghe thay đổi thực tế của rating sân từ Firestore
+    FirebaseFirestore.instance
+        .collection('sport_fields')
+        .doc(widget.field.id)
+        .snapshots()
+        .listen((doc) {
+      if (doc.exists && mounted) {
+        setState(() {
+          _currentRating = (doc.data()?['rating'] ?? widget.field.rating).toDouble();
+        });
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -101,9 +124,36 @@ class _DetailScreenState extends State<DetailScreen> {
             expandedHeight: 250,
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
-              background: Image.network(
-                widget.field.imageUrl,
-                fit: BoxFit.cover,
+              background: Stack(
+                children: [
+                  PageView.builder(
+                    itemCount: 3, // Mockup 3 ảnh
+                    itemBuilder: (context, index) {
+                      return Image.network(
+                        widget.field.imageUrl,
+                        fit: BoxFit.cover,
+                      );
+                    },
+                  ),
+                  Positioned(
+                    bottom: 16,
+                    right: 16,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text(
+                        '1/3',
+                        style: TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             leading: Padding(
@@ -155,7 +205,7 @@ class _DetailScreenState extends State<DetailScreen> {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              '${widget.field.rating}',
+                              _currentRating.toStringAsFixed(1),
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: Colors.brown,
@@ -334,7 +384,7 @@ class _DetailScreenState extends State<DetailScreen> {
 
                   const Divider(height: 40, thickness: 1),
 
-                  // ===== ĐÁNH GIÁ TỪ FIRESTORE =====
+                  // Đánh giá của khách hàng
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [

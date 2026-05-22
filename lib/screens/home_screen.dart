@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
-import '../models/mock_data.dart';
+import '../models/sport_field.dart';
 import '../services/auth_service.dart';
 import '../services/field_service.dart';
 import 'detail_screen.dart';
