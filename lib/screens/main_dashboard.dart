@@ -22,10 +22,6 @@ class MainDashboard extends StatefulWidget {
   State<MainDashboard> createState() => _MainDashboardState();
 }
 
-class _ChatDashboardState extends State<MainDashboard> {
-  // Not used anymore but left in case
-}
-
 class _MainDashboardState extends State<MainDashboard> {
   int _selectedIndex = 0;
   String _role = 'user'; // Mặc định là user

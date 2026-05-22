@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../models/mock_data.dart';
+import '../models/sport_field.dart';
 
 class ReviewService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
