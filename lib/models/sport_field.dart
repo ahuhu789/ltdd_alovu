@@ -36,45 +36,68 @@ class SubCourt {
 }
 
 class Review {
+  String id;
   String userId;
   String userName;
   String avatarUrl;
   double rating;
   String comment;
-  String date;
-  List<String> likedBy;
+  DateTime date;
+  List<String> likes;
+
+  List<String> get likedBy => likes;
 
   Review({
+    this.id = '',
     required this.userId,
     required this.userName,
     required this.avatarUrl,
     required this.rating,
     required this.comment,
     required this.date,
-    this.likedBy = const [],
+    this.likes = const [],
   });
 
-  factory Review.fromJson(Map<String, dynamic> json) {
+  factory Review.fromJson(Map<String, dynamic> json, {String? docId}) {
+    DateTime parsedDate;
+    if (json['date'] is Timestamp) {
+      parsedDate = (json['date'] as Timestamp).toDate();
+    } else if (json['date'] is String) {
+      parsedDate = DateTime.tryParse(json['date']) ?? DateTime.now();
+    } else {
+      parsedDate = DateTime.now();
+    }
+
+    List<String> likesList = [];
+    if (json['likes'] != null) {
+      likesList = List<String>.from(json['likes']);
+    } else if (json['likedBy'] != null) {
+      likesList = List<String>.from(json['likedBy']);
+    }
+
     return Review(
+      id: docId ?? json['id'] ?? '',
       userId: json['userId'] ?? '',
       userName: json['userName'] ?? 'Khách',
       avatarUrl: json['avatarUrl'] ?? '',
       rating: (json['rating'] ?? 0.0).toDouble(),
       comment: json['comment'] ?? '',
-      date: json['date'] ?? '',
-      likedBy: List<String>.from(json['likedBy'] ?? []),
+      date: parsedDate,
+      likes: likesList,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
+      'id': id,
       'userId': userId,
       'userName': userName,
       'avatarUrl': avatarUrl,
       'rating': rating,
       'comment': comment,
-      'date': date,
-      'likedBy': likedBy,
+      'date': date.toIso8601String(),
+      'likes': likes,
+      'likedBy': likes,
     };
   }
 }

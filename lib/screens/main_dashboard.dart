@@ -7,14 +7,14 @@ import 'home_screen.dart';
 import 'history_screen.dart'; // Lịch đặt
 import 'community_screen.dart';
 import 'profile_screen.dart';
+import 'chat_bot_screen.dart';
 
 // Các trang của Admin
 import 'admin_dashboard_screen.dart';
-// import 'revenue_screen.dart'; // Mở comment này khi bạn tạo file revenue_screen.dart
-// import 'communication_screen.dart'; // Mở comment này khi bạn tạo file communication_screen.dart
 import 'static_screen.dart';
 import 'chat_list_screen.dart';
 import 'admin_profile_screen.dart';
+
 class MainDashboard extends StatefulWidget {
   const MainDashboard({super.key});
 
@@ -68,10 +68,7 @@ class _MainDashboardState extends State<MainDashboard> {
     final List<Widget> screens = isAdmin
         ? [
       const AdminDashboardScreen(),
-
-      // THAY THẾ ĐOẠN NÀY:
-      const StatisticsScreen(), // Gọi class từ file static_screen.dart của bạn
-
+      const StatisticsScreen(), // Gọi class từ file static_screen.dart
       const ChatListScreen(),
       const AdminProfileScreen(),
       const ProfileScreen(),
@@ -132,17 +129,26 @@ class _MainDashboardState extends State<MainDashboard> {
 
     return Scaffold(
       body: screens[_selectedIndex >= screens.length ? 0 : _selectedIndex],
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ChatBotScreen()),
+          );
+        },
+        backgroundColor: Colors.green[600],
+        elevation: 4,
+        child: const Icon(Icons.support_agent_rounded, color: Colors.white, size: 28),
+      ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -2))],
         ),
         child: BottomNavigationBar(
           currentIndex: _selectedIndex >= screens.length ? 0 : _selectedIndex,
-
           backgroundColor: Colors.green[600],
           selectedItemColor: Colors.white,
           unselectedItemColor: Colors.white60,
-
           type: BottomNavigationBarType.fixed,
           elevation: 0,
           onTap: (index) => setState(() => _selectedIndex = index),

@@ -10,6 +10,7 @@ import 'edit_profile_screen.dart';
 import 'favorite_screen.dart';
 import 'notification_screen.dart';
 import 'user_chat_screen.dart';
+
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
@@ -38,7 +39,10 @@ class ProfileScreen extends StatelessWidget {
       ),
       body: StreamBuilder<DocumentSnapshot>(
         stream: user != null
-            ? FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots()
+            ? FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(user.uid)
+                  .snapshots()
             : const Stream.empty(),
         builder: (context, snapshot) {
           final userData = snapshot.data?.data() as Map<String, dynamic>?;
@@ -67,22 +71,54 @@ class ProfileScreen extends StatelessWidget {
                       const SizedBox(height: 16),
                       Text(
                         name,
-                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                       ),
                       const SizedBox(height: 4),
-                      Text(emailOrPhone, style: const TextStyle(color: Colors.white70)),
+                      Text(
+                        emailOrPhone,
+                        style: const TextStyle(color: Colors.white70),
+                      ),
                       if (role == 'owner')
                         Container(
                           margin: const EdgeInsets.only(top: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          decoration: BoxDecoration(color: Colors.amber, borderRadius: BorderRadius.circular(12)),
-                          child: const Text('OWNER', style: TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.amber,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'OWNER',
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       const SizedBox(height: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                        decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(20)),
-                        child: Text('Điểm tích luỹ: $points', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          'Điểm tích luỹ: $points',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -130,7 +166,9 @@ class ProfileScreen extends StatelessWidget {
                     if (context.mounted) {
                       Navigator.pushReplacement(
                         context,
-                        MaterialPageRoute(builder: (context) => const LoginScreen()),
+                        MaterialPageRoute(
+                          builder: (context) => const LoginScreen(),
+                        ),
                       );
                     }
                   },
@@ -143,7 +181,13 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildListTile(BuildContext context, IconData icon, String title, {Color? textColor, VoidCallback? onTap}) {
+  Widget _buildListTile(
+    BuildContext context,
+    IconData icon,
+    String title, {
+    Color? textColor,
+    VoidCallback? onTap,
+  }) {
     return ListTile(
       leading: Icon(icon, color: Colors.grey[700]),
       title: Text(title, style: TextStyle(color: textColor ?? Colors.black87)),
