@@ -1,6 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class TimeSlot {
   final String time;
-  final bool isAvailable;
+  bool isAvailable;
 
   TimeSlot({required this.time, required this.isAvailable});
 
@@ -36,34 +38,48 @@ class SubCourt {
 }
 
 class Review {
+  final String id;
+  final String userId;
   final String userName;
   final String avatarUrl;
   final double rating;
   final String comment;
-  final String date;
+  final DateTime date;
+  final List<String> likes;
 
   Review({
+    required this.id,
+    required this.userId,
     required this.userName,
     required this.avatarUrl,
     required this.rating,
     required this.comment,
     required this.date,
+    this.likes = const [],
   });
 
-  factory Review.fromJson(Map<String, dynamic> json) => Review(
+  factory Review.fromJson(Map<String, dynamic> json, {String? docId}) => Review(
+        id: docId ?? json['id'] as String? ?? '',
+        userId: json['userId'] as String? ?? '',
         userName: json['userName'] as String,
-        avatarUrl: json['avatarUrl'] as String,
+        avatarUrl: json['avatarUrl'] as String? ?? '',
         rating: (json['rating'] as num).toDouble(),
         comment: json['comment'] as String,
-        date: json['date'] as String,
+        date: json['date'] is Timestamp
+            ? (json['date'] as Timestamp).toDate()
+            : DateTime.tryParse(json['date']?.toString() ?? '') ?? DateTime.now(),
+        likes: List<String>.from(json['likes'] ?? []),
       );
 
   Map<String, dynamic> toJson() => {
+        'id': id,
+        'userId': userId,
         'userName': userName,
         'avatarUrl': avatarUrl,
         'rating': rating,
         'comment': comment,
-        'date': date,
+        'date': Timestamp.fromDate(date),
+        'likes': likes,
       };
 }
 
@@ -76,7 +92,6 @@ class SportField {
   final String address;
   final double rating;
   final List<SubCourt> subCourts;
-  final List<Review> reviews;
 
   SportField({
     required this.id,
@@ -87,7 +102,6 @@ class SportField {
     required this.address,
     required this.rating,
     required this.subCourts,
-    required this.reviews,
   });
 
   factory SportField.fromJson(Map<String, dynamic> json) => SportField(
@@ -102,10 +116,6 @@ class SportField {
                 ?.map((e) => SubCourt.fromJson(e as Map<String, dynamic>))
                 .toList() ??
             [],
-        reviews: (json['reviews'] as List<dynamic>?)
-                ?.map((e) => Review.fromJson(e as Map<String, dynamic>))
-                .toList() ??
-            [],
       );
 
   Map<String, dynamic> toJson() => {
@@ -117,150 +127,5 @@ class SportField {
         'address': address,
         'rating': rating,
         'subCourts': subCourts.map((e) => e.toJson()).toList(),
-        'reviews': reviews.map((e) => e.toJson()).toList(),
       };
 }
-
-List<Review> _mockReviews() {
-  return [
-    Review(
-      userName: 'Trần Văn A',
-      avatarUrl:
-          'https://images.unsplash.com/photo-1599566150163-29194dcaad36?auto=format&fit=crop&q=80&w=150',
-      rating: 5.0,
-      comment: 'Sân đẹp, đèn sáng, chủ sân nhiệt tình. Sẽ quay lại!',
-      date: '12/10/2023',
-    ),
-    Review(
-      userName: 'Lê Thị B',
-      avatarUrl:
-          'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150',
-      rating: 4.0,
-      comment: 'Giá cả hợp lý, tuy nhiên bãi giữ xe hơi nhỏ vào giờ cao điểm.',
-      date: '05/10/2023',
-    ),
-  ];
-}
-
-List<SportField> mockFields = [
-  SportField(
-    id: '1',
-    name: 'Sân Bóng Đá Chảo Lửa',
-    category: 'Bóng đá',
-    price: '250.000đ / giờ',
-    imageUrl:
-        'https://images.unsplash.com/photo-1574629810360-7efbbc0aa5cb?auto=format&fit=crop&w=800',
-    address: 'Quận Tân Bình, TP.HCM',
-    rating: 4.8,
-    reviews: _mockReviews(),
-    subCourts: [
-      SubCourt(
-        name: 'Sân 5 người (A)',
-        slots: [
-          TimeSlot(time: '17:00 - 18:00', isAvailable: false),
-          TimeSlot(time: '18:00 - 19:00', isAvailable: false),
-          TimeSlot(time: '19:00 - 20:00', isAvailable: true),
-          TimeSlot(time: '20:00 - 21:00', isAvailable: true),
-        ],
-      ),
-      SubCourt(
-        name: 'Sân 7 người (VIP)',
-        slots: [
-          TimeSlot(time: '17:00 - 18:30', isAvailable: true),
-          TimeSlot(time: '18:30 - 20:00', isAvailable: false),
-          TimeSlot(time: '20:00 - 21:30', isAvailable: false),
-        ],
-      ),
-    ],
-  ),
-  SportField(
-    id: '2',
-    name: 'Sân Cầu Lông Viettel',
-    category: 'Cầu lông',
-    price: '80.000đ / giờ',
-    imageUrl:
-        'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?auto=format&fit=crop&q=80&w=800',
-    address: 'Quận 10, TP.HCM',
-    rating: 4.5,
-    reviews: _mockReviews(),
-    subCourts: [
-      SubCourt(
-        name: 'Sân 1 (Thảm Yonex)',
-        slots: [
-          TimeSlot(time: '17:00', isAvailable: true),
-          TimeSlot(time: '18:00', isAvailable: false),
-          TimeSlot(time: '19:00', isAvailable: false),
-          TimeSlot(time: '20:00', isAvailable: true),
-        ],
-      ),
-      SubCourt(
-        name: 'Sân 2',
-        slots: [
-          TimeSlot(time: '17:00', isAvailable: false),
-          TimeSlot(time: '18:00', isAvailable: false),
-          TimeSlot(time: '19:00', isAvailable: false),
-          TimeSlot(time: '20:00', isAvailable: false),
-        ],
-      ),
-      SubCourt(
-        name: 'Sân 3',
-        slots: [
-          TimeSlot(time: '17:00', isAvailable: true),
-          TimeSlot(time: '18:00', isAvailable: true),
-          TimeSlot(time: '19:00', isAvailable: true),
-          TimeSlot(time: '20:00', isAvailable: true),
-        ],
-      ),
-    ],
-  ),
-  SportField(
-    id: '3',
-    name: 'Cụm Tennis Kỳ Hòa',
-    category: 'Tennis',
-    price: '150.000đ / giờ',
-    imageUrl:
-        'https://images.unsplash.com/photo-1595435934249-5df7ed86e1c0?auto=format&fit=crop&q=80&w=800',
-    address: 'Quận 10, TP.HCM',
-    rating: 4.9,
-    reviews: _mockReviews(),
-    subCourts: [
-      SubCourt(
-        name: 'Sân Đất nện',
-        slots: [
-          TimeSlot(time: '06:00 - 08:00', isAvailable: false),
-          TimeSlot(time: '16:00 - 18:00', isAvailable: true),
-          TimeSlot(time: '18:00 - 20:00', isAvailable: false),
-        ],
-      ),
-      SubCourt(
-        name: 'Sân Cứng',
-        slots: [
-          TimeSlot(time: '06:00 - 08:00', isAvailable: true),
-          TimeSlot(time: '16:00 - 18:00', isAvailable: true),
-          TimeSlot(time: '18:00 - 20:00', isAvailable: true),
-        ],
-      ),
-    ],
-  ),
-  SportField(
-    id: '4',
-    name: 'Nhà thi đấu Bóng Rổ SSA',
-    category: 'Bóng rổ',
-    price: '300.000đ / giờ',
-    imageUrl:
-        'https://images.unsplash.com/photo-1505666287802-931dc83948e9?auto=format&fit=crop&q=80&w=800',
-    address: 'Quận 2, TP.HCM',
-    rating: 4.7,
-    reviews: _mockReviews(),
-    subCourts: [
-      SubCourt(
-        name: 'Full Court (Trong nhà)',
-        slots: [
-          TimeSlot(time: '15:00 - 17:00', isAvailable: true),
-          TimeSlot(time: '17:00 - 19:00', isAvailable: false),
-          TimeSlot(time: '19:00 - 21:00', isAvailable: false),
-        ],
-      ),
-    ],
-  ),
-];

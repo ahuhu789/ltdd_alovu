@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/auth_service.dart';
-import '../services/seed_service.dart';
+
 import 'login_screen.dart';
 import 'history_screen.dart';
 
@@ -21,13 +21,20 @@ class ProfileScreen extends StatelessWidget {
       ),
       body: StreamBuilder<DocumentSnapshot>(
         stream: user != null
-            ? FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots()
+            ? FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(user.uid)
+                  .snapshots()
             : const Stream.empty(),
         builder: (context, snapshot) {
           final userData = snapshot.data?.data() as Map<String, dynamic>?;
           final name = userData?['name'] ?? user?.displayName ?? 'Khách Hàng';
-          final emailOrPhone = userData?['email'] ?? user?.email ?? 'Chưa cập nhật email';
-          final avatarUrl = userData?['avatar'] ?? user?.photoURL ?? 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200';
+          final emailOrPhone =
+              userData?['email'] ?? user?.email ?? 'Chưa cập nhật email';
+          final avatarUrl =
+              userData?['avatar'] ??
+              user?.photoURL ??
+              'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200';
           final points = userData?['points'] ?? 0;
           final role = userData?['role'] ?? 'user';
 
@@ -48,62 +55,98 @@ class ProfileScreen extends StatelessWidget {
                       const SizedBox(height: 16),
                       Text(
                         name,
-                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                       ),
                       const SizedBox(height: 4),
-                      Text(emailOrPhone, style: const TextStyle(color: Colors.white70)),
+                      Text(
+                        emailOrPhone,
+                        style: const TextStyle(color: Colors.white70),
+                      ),
                       if (role == 'owner')
                         Container(
                           margin: const EdgeInsets.only(top: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          decoration: BoxDecoration(color: Colors.amber, borderRadius: BorderRadius.circular(12)),
-                          child: const Text('OWNER', style: TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.amber,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'OWNER',
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       const SizedBox(height: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                        decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(20)),
-                        child: Text('Điểm tích luỹ: $points', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          'Điểm tích luỹ: $points',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 16),
                 if (role == 'owner')
-                  _buildListTile(context, Icons.admin_panel_settings, 'Bảng điều khiển Quản trị', textColor: Colors.green[700], onTap: () {
-                    // Đã có tab Admin trong dashboard, nhưng thêm nút ở đây cho tiện
-                  }),
-                _buildListTile(context, Icons.person_outline, 'Chỉnh sửa thông tin cá nhân'),
-                _buildListTile(context, Icons.credit_card, 'Phương thức thanh toán'),
-                _buildListTile(context, Icons.history, 'Lịch sử giao dịch', onTap: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => const HistoryScreen()));
-                }),
-                _buildListTile(context, Icons.notifications_none, 'Cài đặt thông báo'),
-                _buildListTile(context, Icons.help_outline, 'Trung tâm hỗ trợ'),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Divider(height: 32),
-                ),
-                // CÔNG CỤ ADMIN TEST DỮ LIỆU
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text('Công cụ Hệ thống (Test)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                  _buildListTile(
+                    context,
+                    Icons.admin_panel_settings,
+                    'Bảng điều khiển Quản trị',
+                    textColor: Colors.green[700],
+                    onTap: () {
+                      // Đã có tab Admin trong dashboard, nhưng thêm nút ở đây cho tiện
+                    },
                   ),
+                _buildListTile(
+                  context,
+                  Icons.person_outline,
+                  'Chỉnh sửa thông tin cá nhân',
                 ),
-                _buildListTile(context, Icons.cloud_upload, 'Nạp tự động Sân giả lập (Test)', textColor: Colors.blue, onTap: () async {
-                  showDialog(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (_) => const Center(child: CircularProgressIndicator()),
-                  );
-                  await SeedService().seedSportFields();
-                  if (context.mounted) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nạp thành công! Hãy quay lại trang chủ để kiểm tra nhé.'), backgroundColor: Colors.green));
-                  }
-                }),
+                _buildListTile(
+                  context,
+                  Icons.credit_card,
+                  'Phương thức thanh toán',
+                ),
+                _buildListTile(
+                  context,
+                  Icons.history,
+                  'Lịch sử giao dịch',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const HistoryScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildListTile(
+                  context,
+                  Icons.notifications_none,
+                  'Cài đặt thông báo',
+                ),
+                _buildListTile(context, Icons.help_outline, 'Trung tâm hỗ trợ'),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16),
                   child: Divider(height: 32),
@@ -122,7 +165,9 @@ class ProfileScreen extends StatelessWidget {
                     if (context.mounted) {
                       Navigator.pushReplacement(
                         context,
-                        MaterialPageRoute(builder: (context) => const LoginScreen()),
+                        MaterialPageRoute(
+                          builder: (context) => const LoginScreen(),
+                        ),
                       );
                     }
                   },
@@ -135,7 +180,13 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildListTile(BuildContext context, IconData icon, String title, {Color? textColor, VoidCallback? onTap}) {
+  Widget _buildListTile(
+    BuildContext context,
+    IconData icon,
+    String title, {
+    Color? textColor,
+    VoidCallback? onTap,
+  }) {
     return ListTile(
       leading: Icon(icon, color: Colors.grey[700]),
       title: Text(title, style: TextStyle(color: textColor ?? Colors.black87)),

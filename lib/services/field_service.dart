@@ -42,11 +42,4 @@ class FieldService {
     await _db.collection('sport_fields').doc(id).delete();
   }
 
-  // Thêm đánh giá mới
-  Future<void> addReview(String fieldId, Review review) async {
-    await _db.collection('sport_fields').doc(fieldId).update({
-      'reviews': FieldValue.arrayUnion([review.toJson()]),
-      'rating': (FieldValue.increment(review.rating) as dynamic) // Thực tế cần chia trung bình, mockup increment tạm
-    });
-  }
 }

@@ -6,6 +6,7 @@ import 'profile_screen.dart';
 import 'history_screen.dart';
 import 'community_screen.dart';
 import 'admin_dashboard_screen.dart';
+import 'chat_bot_screen.dart';
 
 class MainDashboard extends StatefulWidget {
   const MainDashboard({super.key});
@@ -57,13 +58,24 @@ class _MainDashboardState extends State<MainDashboard> {
 
     return Scaffold(
       body: screens[_selectedIndex >= screens.length ? 0 : _selectedIndex],
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ChatBotScreen()),
+          );
+        },
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        elevation: 4,
+        child: const Icon(Icons.support_agent_rounded, color: Colors.white, size: 28),
+      ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
         ),
         child: BottomNavigationBar(
           currentIndex: _selectedIndex >= screens.length ? 0 : _selectedIndex,
-          selectedItemColor: Colors.green[600],
+          selectedItemColor: Theme.of(context).colorScheme.primary,
           unselectedItemColor: Colors.grey,
           backgroundColor: Colors.white,
           type: BottomNavigationBarType.fixed,
@@ -97,3 +109,4 @@ class _MainDashboardState extends State<MainDashboard> {
     );
   }
 }
+

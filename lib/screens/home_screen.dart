@@ -33,19 +33,20 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Text(
               'Xin chào, Khách hàng 👋',
-              style: TextStyle(fontSize: 14, color: Colors.white70),
+              style: TextStyle(fontSize: 14, color: Colors.white70, fontWeight: FontWeight.normal),
             ),
+            SizedBox(height: 4),
             Text(
               'Bạn muốn chơi môn gì hôm nay?',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: 20,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),
             ),
           ],
         ),
-        backgroundColor: Colors.green[600],
+        backgroundColor: Theme.of(context).colorScheme.primary,
         elevation: 0,
         actions: [
           IconButton(
@@ -60,8 +61,8 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             // Thanh tìm kiếm
             Container(
-              color: Colors.green[600],
-              padding: const EdgeInsets.only(left: 16, right: 16, bottom: 20),
+              color: Theme.of(context).colorScheme.primary,
+              padding: const EdgeInsets.only(left: 20, right: 20, bottom: 24, top: 8),
               child: TextField(
                 onChanged: (value) {
                   setState(() {
@@ -160,13 +161,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   itemBuilder: (context, index) {
                     final field = fields[index];
                 return Card(
-                  margin: const EdgeInsets.only(bottom: 20),
-                  elevation: 2,
+                  margin: const EdgeInsets.only(bottom: 24),
+                  elevation: 4,
+                  shadowColor: Colors.black.withOpacity(0.08),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(24),
                   ),
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(24),
                     onTap: () {
                       Navigator.push(
                         context,
@@ -180,7 +182,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         ClipRRect(
                           borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(16),
+                            top: Radius.circular(24),
                           ),
                           child: Stack(
                             children: [
@@ -260,7 +262,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               Text(
                                 field.name,
                                 style: const TextStyle(
-                                  fontSize: 18,
+                                  fontSize: 20,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
