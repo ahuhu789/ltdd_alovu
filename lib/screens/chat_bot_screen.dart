@@ -46,13 +46,38 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
       });
     } catch (e) {
       setState(() {
-        _messages.insert(0, ChatMessage(text: 'Lỗi: $e', isUser: false));
+        _messages.insert(0, ChatMessage(text: 'ALOVUBot hiện đang bận, xin hãy thử lại sau.', isUser: false));
       });
     } finally {
       setState(() {
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _sendSuggestion(String prompt) async {
+    if (_isLoading) return;
+    _messageController.text = prompt;
+    await _sendMessage();
+  }
+
+  Widget _buildSuggestionChip(String text) {
+    return ActionChip(
+      label: Text(
+        text,
+        style: TextStyle(
+          color: Colors.green[800],
+          fontWeight: FontWeight.w500,
+          fontSize: 13,
+        ),
+      ),
+      backgroundColor: Colors.green[50],
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: Colors.green[200]!),
+      ),
+      onPressed: () => _sendSuggestion(text),
+    );
   }
 
   @override
@@ -121,6 +146,24 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
               padding: EdgeInsets.symmetric(vertical: 8.0),
               child: CircularProgressIndicator(color: Colors.green),
             ),
+          
+          // Suggestion Chips
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                _buildSuggestionChip('Sân nào còn trống?'),
+                const SizedBox(width: 8),
+                _buildSuggestionChip('Bảng giá thuê sân?'),
+                const SizedBox(width: 8),
+                _buildSuggestionChip('Làm sao để ghép kèo?'),
+                const SizedBox(width: 8),
+                _buildSuggestionChip('Quy định hoàn tiền?'),
+              ],
+            ),
+          ),
+
           Container(
             padding: const EdgeInsets.all(10),
             decoration: const BoxDecoration(

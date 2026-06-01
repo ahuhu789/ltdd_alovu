@@ -120,6 +120,19 @@ class ReviewService {
     }
   }
 
+  /// Xóa đánh giá (chỉ dùng cho Admin hoặc khi cần thiết)
+  Future<void> deleteReview(String fieldId, String reviewId) async {
+    await _db
+        .collection('sport_fields')
+        .doc(fieldId)
+        .collection('reviews')
+        .doc(reviewId)
+        .delete();
+
+    // Tính toán lại rating trung bình cho sân
+    await _updateAverageRating(fieldId);
+  }
+
   /// Đã sửa lỗi: Tính toán lại điểm số trung bình an toàn, chống crash 'Null' type cast
   Future<void> _updateAverageRating(String fieldId) async {
     final snapshot = await _db

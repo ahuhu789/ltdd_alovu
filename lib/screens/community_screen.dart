@@ -19,6 +19,17 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   @override
@@ -39,7 +50,11 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          _showCreateTeamDialog();
+          if (_tabController.index == 0) {
+            _showCreateTeamDialog();
+          } else {
+            _showCreateMatchDialog();
+          }
         },
         backgroundColor: Colors.green[600],
         child: const Icon(Icons.add, color: Colors.white),
@@ -105,16 +120,42 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
   }
 
   Widget _buildMatchList() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        _buildMatchCard('Sân Chảo Lửa - Sân 5', '19:00 Hôm nay', 'Thiếu 2 người', '50k/người'),
-        _buildMatchCard('Sân Viettel - Sân 2', '20:30 Mai', 'Thiếu 3 người', '40k/người'),
-      ],
+    return StreamBuilder<List<SportMatch>>(
+      stream: SocialService().getOpenMatches(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: 3,
+            itemBuilder: (context, index) => _buildTeamSkeleton(),
+          );
+        }
+        final matches = snapshot.data!;
+        if (matches.isEmpty) {
+          return const Center(child: Text('Chưa có kèo nào được tạo. Hãy tạo kèo ngay!'));
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: matches.length,
+          itemBuilder: (context, index) {
+            return _buildMatchCard(matches[index]);
+          },
+        );
+      },
     );
   }
 
-  Widget _buildMatchCard(String field, String time, String status, String price) {
+  Widget _buildMatchCard(SportMatch match) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final amIJoined = match.joinedPlayers.contains(currentUser?.uid);
+    final isFull = match.joinedPlayers.length >= match.maxPlayers;
+
+    String statusStr = 'Thiếu ${match.maxPlayers - match.joinedPlayers.length} người';
+    if (isFull) {
+      statusStr = 'Đã đủ người';
+    }
+
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -126,30 +167,140 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(field, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                Expanded(
+                  child: Text(
+                    match.field,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(color: Colors.orange[100], borderRadius: BorderRadius.circular(8)),
-                  child: Text(status, style: TextStyle(color: Colors.orange[800], fontSize: 12, fontWeight: FontWeight.bold)),
+                  decoration: BoxDecoration(
+                    color: isFull ? Colors.grey[200] : Colors.orange[100],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    statusStr,
+                    style: TextStyle(
+                      color: isFull ? Colors.grey[700] : Colors.orange[800],
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            Text('🕒 $time', style: const TextStyle(color: Colors.grey)),
+            Text('🕒 ${match.time}', style: const TextStyle(color: Colors.grey)),
+            const SizedBox(height: 4),
+            Text('👑 Chủ kèo: ${match.hostName}', style: TextStyle(color: Colors.green[700], fontSize: 13)),
             const Divider(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(price, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+                Text(
+                  match.price,
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 16),
+                ),
                 ElevatedButton(
-                  onPressed: () {},
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green[600], foregroundColor: Colors.white),
-                  child: const Text('KÈO NGAY'),
+                  onPressed: currentUser == null
+                      ? null
+                      : () => SocialService().toggleJoinMatch(match.id),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: amIJoined ? Colors.red[600] : Colors.green[600],
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text(amIJoined ? 'HỦY KÈO' : 'KÈO NGAY'),
                 ),
               ],
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showCreateMatchDialog() {
+    final fieldController = TextEditingController();
+    final timeController = TextEditingController();
+    final priceController = TextEditingController();
+    final maxPlayersController = TextEditingController(text: '10');
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Tạo kèo ghép mới', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: fieldController,
+                decoration: const InputDecoration(
+                  labelText: 'Tên sân & Khu vực',
+                  hintText: 'Ví dụ: Sân Chảo Lửa - Sân 5',
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: timeController,
+                decoration: const InputDecoration(
+                  labelText: 'Thời gian',
+                  hintText: 'Ví dụ: 19:00 Hôm nay hoặc 20:30 Mai',
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: priceController,
+                decoration: const InputDecoration(
+                  labelText: 'Chi phí (mỗi người)',
+                  hintText: 'Ví dụ: 50k/người',
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: maxPlayersController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Số người tối đa',
+                  hintText: 'Ví dụ: 10',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('HỦY', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final field = fieldController.text.trim();
+              final time = timeController.text.trim();
+              final price = priceController.text.trim();
+              final maxPlayers = int.tryParse(maxPlayersController.text) ?? 10;
+
+              if (field.isNotEmpty && time.isNotEmpty && price.isNotEmpty) {
+                SocialService().createMatch(
+                  field: field,
+                  time: time,
+                  price: price,
+                  maxPlayers: maxPlayers,
+                );
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Đã đăng kèo ghép thành công!'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green[600]),
+            child: const Text('TẠO KÈO'),
+          ),
+        ],
       ),
     );
   }

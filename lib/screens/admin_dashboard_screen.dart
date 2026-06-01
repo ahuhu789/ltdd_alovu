@@ -128,6 +128,75 @@ class AdminDashboardScreen extends StatelessWidget {
             _buildAdminMenu(context, 'Quản lý Đánh giá', Icons.reviews_rounded, Colors.purple, () {
               Navigator.push(context, MaterialPageRoute(builder: (context) => const ReviewManagementScreen()));
             }),
+            _buildAdminMenu(context, 'Reset trạng thái sân (Available)', Icons.refresh_rounded, Colors.red, () async {
+              showDialog(
+                context: context,
+                builder: (BuildContext dialogContext) {
+                  return AlertDialog(
+                    title: const Text('Xác nhận Reset sân', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                    content: const Text('Hệ thống sẽ cập nhật tất cả khung giờ mẫu thành TRỐNG, và chuyển trạng thái toàn bộ đơn đặt sân thành ĐÃ HỦY để giải phóng toàn bộ sân thể thao. Bạn có chắc chắn muốn thực hiện?'),
+                    actions: [
+                      TextButton(
+                        child: const Text('Hủy'),
+                        onPressed: () => Navigator.pop(dialogContext),
+                      ),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                        child: const Text('Xác nhận Reset', style: TextStyle(color: Colors.white)),
+                        onPressed: () async {
+                          Navigator.pop(dialogContext);
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (context) => const Center(child: CircularProgressIndicator()),
+                          );
+
+                          try {
+                            final fieldsSnapshot = await FirebaseFirestore.instance.collection('sport_fields').get();
+                            for (var doc in fieldsSnapshot.docs) {
+                              final data = doc.data();
+                              final List<dynamic> subCourtsData = data['subCourts'] ?? [];
+                              
+                              for (var court in subCourtsData) {
+                                final List<dynamic> slots = court['slots'] ?? [];
+                                for (var slot in slots) {
+                                  slot['isAvailable'] = true;
+                                }
+                              }
+                              
+                              await doc.reference.update({
+                                'subCourts': subCourtsData,
+                              });
+                            }
+
+                            final bookingsSnapshot = await FirebaseFirestore.instance.collection('bookings').get();
+                            for (var doc in bookingsSnapshot.docs) {
+                              await doc.reference.update({
+                                'status': 'cancelled',
+                              });
+                            }
+
+                            if (context.mounted) {
+                              Navigator.pop(context); // Tắt loading
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Đã cập nhật toàn bộ trạng thái sân thành TRỐNG (Available) thành công!'), backgroundColor: Colors.green),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              Navigator.pop(context); // Tắt loading
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Lỗi khi reset sân: $e'), backgroundColor: Colors.red),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                    ],
+                  );
+                },
+              );
+            }),
 
             const SizedBox(height: 32),
 

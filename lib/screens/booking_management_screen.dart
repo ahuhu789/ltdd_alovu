@@ -23,7 +23,6 @@ class _BookingManagementScreenState extends State<BookingManagementScreen> {
         return Colors.blue;
       case 'cancelled':
         return Colors.red;
-      case 'success':
       default:
         return Colors.green;
     }
@@ -37,7 +36,6 @@ class _BookingManagementScreenState extends State<BookingManagementScreen> {
         return 'Đã chơi';
       case 'cancelled':
         return 'Đã hủy';
-      case 'success':
       default:
         return 'Đặt thành công';
     }
@@ -177,14 +175,15 @@ class _BookingManagementScreenState extends State<BookingManagementScreen> {
             _buildDetailRow(Icons.stadium, 'Sân bãi:', booking.fieldName),
             _buildDetailRow(Icons.sports, 'Khu vực:', booking.courtName),
             _buildDetailRow(Icons.access_time, 'Thời gian đá:', booking.time),
-            _buildDetailRow(Icons.calendar_today, 'Ngày đặt:', dateStr),
+            _buildDetailRow(Icons.event, 'Ngày hẹn chơi:', booking.bookingDate),
+            _buildDetailRow(Icons.calendar_today, 'Ngày đặt đơn:', dateStr),
             _buildDetailRow(Icons.payment, 'Thanh toán:', booking.paymentMethod),
             _buildDetailRow(Icons.monetization_on, 'Tổng tiền:', booking.totalAmount, color: Colors.green),
 
             const SizedBox(height: 32),
 
             // --- PHẦN XỬ LÝ NÚT BẤM (GIỮ NGUYÊN LOGIC CỦA BẠN) ---
-            if (statusClean != 'success' && statusClean != 'cancelled' && statusClean != 'completed')
+            if (statusClean == 'success')
               Row(
                 children: [
                   Expanded(

@@ -5,7 +5,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../models/sport_field.dart';
-import '../services/field_service.dart';
 import '../services/review_service.dart';
 import 'payment_screen.dart';
 
@@ -23,6 +22,7 @@ class _DetailScreenState extends State<DetailScreen> {
   String? selectedTime;
   final ReviewService _reviewService = ReviewService();
   double _currentRating = 0.0;
+  DateTime selectedDate = DateTime.now();
 
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
   _ratingSubscription;
@@ -141,6 +141,7 @@ class _DetailScreenState extends State<DetailScreen> {
                               field: widget.field,
                               courtName: selectedCourtName!,
                               time: selectedTime!,
+                              bookingDate: DateFormat('yyyy-MM-dd').format(selectedDate),
                             ),
                           ),
                         );
@@ -324,97 +325,140 @@ class _DetailScreenState extends State<DetailScreen> {
                   const SizedBox(height: 24),
 
                   const Text(
-                    'Lịch ngày hôm nay',
+                    'Chọn ngày & Khung giờ',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
+                  _buildDatePicker(),
+                  const SizedBox(height: 24),
 
-                  // Danh sách sân và khung giờ
-                  ListView.builder(
-                    padding: EdgeInsets.zero,
-                    physics: const NeverScrollableScrollPhysics(),
-                    shrinkWrap: true,
-                    itemCount: widget.field.subCourts.length,
-                    itemBuilder: (context, index) {
-                      final court = widget.field.subCourts[index];
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 24),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '📌 ${court.name}',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            GridView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 3,
-                                    childAspectRatio: 2.5,
-                                    crossAxisSpacing: 10,
-                                    mainAxisSpacing: 10,
-                                  ),
-                              itemCount: court.slots.length,
-                              itemBuilder: (context, slotIndex) {
-                                final slot = court.slots[slotIndex];
-                                bool isSelected =
-                                    selectedCourtName == court.name &&
-                                    selectedTime == slot.time;
+                  // Danh sách sân và khung giờ cập nhật động theo ngày và đơn đặt
+                  StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('bookings')
+                        .where('fieldId', isEqualTo: widget.field.id)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24.0),
+                            child: CircularProgressIndicator(),
+                          ),
+                        );
+                      }
 
-                                return InkWell(
-                                  onTap: slot.isAvailable
-                                      ? () {
-                                          setState(() {
-                                            selectedCourtName = court.name;
-                                            selectedTime = slot.time;
-                                          });
-                                        }
-                                      : null,
-                                  child: Container(
-                                    alignment: Alignment.center,
-                                    decoration: BoxDecoration(
-                                      color: slot.isAvailable
-                                          ? (isSelected
-                                                ? Colors.green[600]
-                                                : Colors.white)
-                                          : Colors.grey[200],
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color: slot.isAvailable
-                                            ? (isSelected
-                                                  ? Colors.green[600]!
-                                                  : Colors.green[300]!)
-                                            : Colors.grey[300]!,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      slot.time,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: slot.isAvailable
-                                            ? (isSelected
-                                                  ? Colors.white
-                                                  : Colors.green[800])
-                                            : Colors.grey[500],
-                                        fontWeight: FontWeight.bold,
-                                        decoration: slot.isAvailable
-                                            ? TextDecoration.none
-                                            : TextDecoration.lineThrough,
-                                      ),
-                                    ),
+                      final bookings = snapshot.data?.docs ?? [];
+                      final Set<String> bookedSlots = {}; // Định dạng: "courtName_time"
+                      final selectedDateStr = DateFormat('yyyy-MM-dd').format(selectedDate);
+
+                      for (var doc in bookings) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        final status = data['status'] ?? 'success';
+                        final date = data['bookingDate'] ?? '';
+                        final court = data['courtName'] ?? '';
+                        final time = data['time'] ?? '';
+
+                        if (status != 'cancelled' && date == selectedDateStr) {
+                          bookedSlots.add('${court}_$time');
+                        }
+                      }
+
+                      final isToday = selectedDateStr == DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+                      return ListView.builder(
+                        padding: EdgeInsets.zero,
+                        physics: const NeverScrollableScrollPhysics(),
+                        shrinkWrap: true,
+                        itemCount: widget.field.subCourts.length,
+                        itemBuilder: (context, index) {
+                          final court = widget.field.subCourts[index];
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 24),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '📌 ${court.name}',
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black87,
                                   ),
-                                );
-                              },
+                                ),
+                                const SizedBox(height: 12),
+                                GridView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  gridDelegate:
+                                      const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 3,
+                                        childAspectRatio: 2.5,
+                                        crossAxisSpacing: 10,
+                                        mainAxisSpacing: 10,
+                                      ),
+                                  itemCount: court.slots.length,
+                                  itemBuilder: (context, slotIndex) {
+                                    final slot = court.slots[slotIndex];
+                                    final isAlreadyBooked = bookedSlots.contains('${court.name}_${slot.time}');
+                                    final isPast = isToday && _isSlotPast(slot.time);
+                                    
+                                    // Sân trống khi: cấu hình gốc là trống && chưa bị đặt && chưa quá giờ chơi
+                                    final bool isSlotAvailable = slot.isAvailable && !isAlreadyBooked && !isPast;
+
+                                    bool isSelected =
+                                        selectedCourtName == court.name &&
+                                        selectedTime == slot.time;
+
+                                    return InkWell(
+                                      onTap: isSlotAvailable
+                                          ? () {
+                                              setState(() {
+                                                selectedCourtName = court.name;
+                                                selectedTime = slot.time;
+                                              });
+                                            }
+                                          : null,
+                                      child: Container(
+                                        alignment: Alignment.center,
+                                        decoration: BoxDecoration(
+                                          color: isSlotAvailable
+                                              ? (isSelected
+                                                    ? Colors.green[600]
+                                                    : Colors.white)
+                                              : Colors.grey[200],
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(
+                                            color: isSlotAvailable
+                                                ? (isSelected
+                                                      ? Colors.green[600]!
+                                                      : Colors.green[300]!)
+                                                : Colors.grey[300]!,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          slot.time,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: isSlotAvailable
+                                                ? (isSelected
+                                                      ? Colors.white
+                                                      : Colors.green[800])
+                                                : Colors.grey[500],
+                                            fontWeight: FontWeight.bold,
+                                            decoration: isSlotAvailable
+                                                ? TextDecoration.none
+                                                : TextDecoration.lineThrough,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
+                          );
+                        },
                       );
                     },
                   ),
@@ -436,6 +480,7 @@ class _DetailScreenState extends State<DetailScreen> {
                       StreamBuilder<bool>(
                         stream: _reviewService.hasUserReviewed(widget.field.id),
                         builder: (context, snapshot) {
+                          if (snapshot.hasError) return const SizedBox.shrink();
                           final hasReviewed = snapshot.data ?? false;
                           if (hasReviewed) return const SizedBox.shrink();
                           return TextButton.icon(
@@ -460,6 +505,18 @@ class _DetailScreenState extends State<DetailScreen> {
                           child: Padding(
                             padding: EdgeInsets.all(20.0),
                             child: CircularProgressIndicator(),
+                          ),
+                        );
+                      }
+
+                      if (snapshot.hasError) {
+                        return const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(20.0),
+                            child: Text(
+                              'Đã xảy ra lỗi khi tải đánh giá. Vui lòng thử lại sau.',
+                              style: TextStyle(color: Colors.red),
+                            ),
                           ),
                         );
                       }
@@ -546,17 +603,20 @@ class _DetailScreenState extends State<DetailScreen> {
                   dynamicUserName = uData?['name'] ?? review.userName;
                 }
 
+                final imgProvider = _buildAvatarImage(dynamicAvatarUrl);
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     CircleAvatar(
-                      backgroundImage: _buildAvatarImage(dynamicAvatarUrl),
-                      onForegroundImageError: (exception, stackTrace) {
-                        debugPrint('⚠️ Không thể load avatar: $exception');
-                      },
+                      backgroundImage: imgProvider,
+                      onBackgroundImageError: imgProvider != null
+                          ? (exception, stackTrace) {
+                              debugPrint('⚠️ Không thể load avatar: $exception');
+                            }
+                          : null,
                       backgroundColor: Colors.green[100],
                       radius: 20,
-                      child: dynamicAvatarUrl.isEmpty
+                      child: imgProvider == null
                           ? Text(
                               dynamicUserName.isNotEmpty
                                   ? dynamicUserName[0].toUpperCase()
@@ -825,5 +885,98 @@ class _DetailScreenState extends State<DetailScreen> {
         Text(text, style: const TextStyle(fontSize: 13, color: Colors.black87)),
       ],
     );
+  }
+
+  Widget _buildDatePicker() {
+    final now = DateTime.now();
+    
+    return SizedBox(
+      height: 80,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: 7,
+        itemBuilder: (context, index) {
+          final date = now.add(Duration(days: index));
+          final dayName = index == 0 ? 'H.Nay' : _getDayOfWeekName(date);
+          final dayStr = DateFormat('dd/MM').format(date);
+          final isSelected = DateFormat('yyyy-MM-dd').format(date) == DateFormat('yyyy-MM-dd').format(selectedDate);
+          
+          return InkWell(
+            onTap: () {
+              setState(() {
+                selectedDate = date;
+                selectedCourtName = null;
+                selectedTime = null;
+              });
+            },
+            child: Container(
+              width: 70,
+              margin: const EdgeInsets.only(right: 12),
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.green[600] : Colors.grey[50],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isSelected ? Colors.green[600]! : Colors.grey[200]!,
+                  width: 1.5,
+                ),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: Colors.green.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        )
+                      ]
+                    : null,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    dayName,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: isSelected ? Colors.white : Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    dayStr,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: isSelected ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  String _getDayOfWeekName(DateTime date) {
+    int weekday = date.weekday;
+    if (weekday == 7) return 'CN';
+    return 'T${weekday + 1}';
+  }
+
+  bool _isSlotPast(String slotTime) {
+    try {
+      final startTimeStr = slotTime.split('-').first.trim();
+      final parts = startTimeStr.split(':');
+      final startHour = int.parse(parts[0]);
+      final startMin = int.parse(parts[1]);
+      
+      final now = DateTime.now();
+      final slotDateTime = DateTime(now.year, now.month, now.day, startHour, startMin);
+      
+      return slotDateTime.isBefore(now);
+    } catch (e) {
+      return false;
+    }
   }
 }

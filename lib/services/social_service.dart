@@ -81,10 +81,65 @@ class SocialService {
   }
 
   // Lấy danh sách ghép kèo (Sử dụng collection 'matches')
-  Stream<List<Map<String, dynamic>>> getOpenMatches() {
-    return _db.collection('matches').snapshots().map((snapshot) {
-      return snapshot.docs.map((doc) => doc.data()).toList();
+  Stream<List<SportMatch>> getOpenMatches() {
+    return _db.collection('matches').orderBy('createdAt', descending: true).snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) => SportMatch.fromJson(doc.data())).toList();
     });
+  }
+
+  // Tạo kèo mới
+  Future<void> createMatch({
+    required String field,
+    required String time,
+    required String price,
+    required int maxPlayers,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    final docRef = _db.collection('matches').doc();
+
+    final userDoc = await _db.collection('users').doc(user.uid).get();
+    final hostName = userDoc.data()?['name'] ?? user.displayName ?? 'Người chơi';
+
+    final match = SportMatch(
+      id: docRef.id,
+      field: field,
+      time: time,
+      price: price,
+      maxPlayers: maxPlayers,
+      joinedPlayers: [user.uid],
+      hostId: user.uid,
+      hostName: hostName,
+      createdAt: DateTime.now(),
+    );
+
+    await docRef.set(match.toJson());
+  }
+
+  // Tham gia / Rời kèo
+  Future<void> toggleJoinMatch(String matchId) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    final docRef = _db.collection('matches').doc(matchId);
+    final doc = await docRef.get();
+    if (!doc.exists) return;
+
+    final match = SportMatch.fromJson(doc.data()!);
+    if (match.joinedPlayers.contains(user.uid)) {
+      // Đã tham gia -> Rời kèo
+      await docRef.update({
+        'joinedPlayers': FieldValue.arrayRemove([user.uid])
+      });
+    } else {
+      // Chưa tham gia -> Tham gia kèo nếu còn chỗ
+      if (match.joinedPlayers.length < match.maxPlayers) {
+        await docRef.update({
+          'joinedPlayers': FieldValue.arrayUnion([user.uid])
+        });
+      }
+    }
   }
 
   // --- CHAT LOGIC ---
@@ -108,6 +163,7 @@ class SocialService {
     await _db.collection('chats').doc(chatId).set({
       'lastMessage': content,
       'lastTimestamp': FieldValue.serverTimestamp(),
+      'isGroup': true,
     }, SetOptions(merge: true));
   }
 

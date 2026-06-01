@@ -75,3 +75,53 @@ class ChatMessage {
         'type': type,
       };
 }
+
+class SportMatch {
+  final String id;
+  final String field;
+  final String time;
+  final String price;
+  final int maxPlayers;
+  final List<String> joinedPlayers;
+  final String hostId;
+  final String hostName;
+  final DateTime createdAt;
+
+  SportMatch({
+    required this.id,
+    required this.field,
+    required this.time,
+    required this.price,
+    required this.maxPlayers,
+    required this.joinedPlayers,
+    required this.hostId,
+    required this.hostName,
+    required this.createdAt,
+  });
+
+  factory SportMatch.fromJson(Map<String, dynamic> json) => SportMatch(
+        id: json['id'] as String? ?? '',
+        field: json['field'] as String? ?? '',
+        time: json['time'] as String? ?? '',
+        price: json['price'] as String? ?? '',
+        maxPlayers: (json['maxPlayers'] as num?)?.toInt() ?? 10,
+        joinedPlayers: List<String>.from(json['joinedPlayers'] ?? []),
+        hostId: json['hostId'] as String? ?? '',
+        hostName: json['hostName'] as String? ?? '',
+        createdAt: json['createdAt'] != null
+            ? (json['createdAt'] as Timestamp).toDate()
+            : DateTime.now(),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'field': field,
+        'time': time,
+        'price': price,
+        'maxPlayers': maxPlayers,
+        'joinedPlayers': joinedPlayers,
+        'hostId': hostId,
+        'hostName': hostName,
+        'createdAt': createdAt,
+      };
+}

@@ -12,6 +12,7 @@ class Booking {
   final String fieldAddress;
   final String courtName;
   final String time;
+  final String bookingDate;
   final String totalAmount;
   final String paymentMethod;
   final String status;
@@ -28,6 +29,7 @@ class Booking {
     required this.fieldAddress,
     required this.courtName,
     required this.time,
+    required this.bookingDate,
     required this.totalAmount,
     required this.paymentMethod,
     required this.status,
@@ -53,6 +55,7 @@ class Booking {
       fieldAddress: json['fieldAddress'] ?? '',
       courtName: json['courtName'] ?? '',
       time: json['time'] ?? '',
+      bookingDate: json['bookingDate'] ?? '',
       totalAmount: json['totalAmount'] ?? '0',
       paymentMethod: json['paymentMethod'] ?? '',
       status: json['status'] ?? 'pending',

@@ -12,6 +12,7 @@ class BookingService {
     required SportField field,
     required String courtName,
     required String time,
+    required String bookingDate,
     required String paymentMethod,
     required String totalAmount,
   }) async {
@@ -19,60 +20,58 @@ class BookingService {
       final user = _auth.currentUser;
       if (user == null) return false;
 
+      // Query to check if there is an active booking for this exact date, court and time
+      final existingBookings = await _db.collection('bookings')
+          .where('fieldId', isEqualTo: field.id)
+          .where('courtName', isEqualTo: courtName)
+          .where('time', isEqualTo: time)
+          .where('bookingDate', isEqualTo: bookingDate)
+          .get();
+
+      bool isAlreadyBooked = false;
+      for (var doc in existingBookings.docs) {
+        final status = doc.data()['status'] ?? 'pending';
+        if (status != 'cancelled') {
+          isAlreadyBooked = true;
+          break;
+        }
+      }
+
+      if (isAlreadyBooked) {
+        debugPrint('Lỗi đặt sân: Khung giờ này đã có người đặt trước!');
+        return false;
+      }
+
       final bookingRef = _db.collection('bookings').doc();
 
-
-      final fieldRef = _db.collection('sport_fields').doc(field.id);
-
-      await _db.runTransaction((transaction) async {
-        final snapshot = await transaction.get(fieldRef);
-        if (!snapshot.exists) throw Exception('Sân thể thao không tồn tại!');
-
-        final currentField = SportField.fromJson(snapshot.data()!);
-
-        bool foundAndUpdated = false;
-
-        for (var i = 0; i < currentField.subCourts.length; i++) {
-          if (currentField.subCourts[i].name == courtName) {
-            for (var j = 0; j < currentField.subCourts[i].slots.length; j++) {
-              if (currentField.subCourts[i].slots[j].time == time) {
-                if (!currentField.subCourts[i].slots[j].isAvailable) {
-                  throw Exception(
-                    'Rất tiếc, sân giờ này vừa có người đặt xong!',
-                  );
-                }
-                currentField.subCourts[i].slots[j] = TimeSlot(
-                  time: time,
-                  isAvailable: false,
-                );
-                foundAndUpdated = true;
-                break;
-              }
-            }
-          }
+      // Get user name and phone
+      String userName = 'Khách lẻ';
+      String userPhone = 'Chưa cập nhật';
+      final userDoc = await _db.collection('users').doc(user.uid).get();
+      if (userDoc.exists) {
+        final data = userDoc.data();
+        if (data != null) {
+          userName = data['name'] ?? 'Khách lẻ';
+          userPhone = data['phone'] ?? 'Chưa cập nhật';
         }
+      }
 
-        if (!foundAndUpdated)
-          throw Exception('Không tìm thấy dữ liệu Sân và Khung giờ yêu cầu');
-
-        transaction.update(fieldRef, {
-          'subCourts': currentField.subCourts.map((e) => e.toJson()).toList(),
-        });
-
-        transaction.set(bookingRef, {
-          'id': bookingRef.id,
-          'userId': user.uid,
-          'fieldId': field.id,
-          'fieldName': field.name,
-          'fieldAddress': field.address,
-          'courtName': courtName,
-          'category': field.category,
-          'time': time,
-          'totalAmount': totalAmount,
-          'paymentMethod': paymentMethod,
-          'status': 'success',
-          'createdAt': FieldValue.serverTimestamp(),
-        });
+      await bookingRef.set({
+        'id': bookingRef.id,
+        'userId': user.uid,
+        'userName': userName,
+        'userPhone': userPhone,
+        'fieldId': field.id,
+        'fieldName': field.name,
+        'fieldAddress': field.address,
+        'courtName': courtName,
+        'category': field.category,
+        'time': time,
+        'bookingDate': bookingDate,
+        'totalAmount': totalAmount,
+        'paymentMethod': paymentMethod,
+        'status': 'success',
+        'createdAt': FieldValue.serverTimestamp(),
       });
 
       return true;
@@ -106,46 +105,14 @@ class BookingService {
 
   Future<void> cancelBooking(Booking booking, {bool requireRefund = false}) async {
     final bookingRef = _db.collection('bookings').doc(booking.id);
-    final fieldRef = _db.collection('sport_fields').doc(booking.fieldId);
-
     try {
-      await _db.runTransaction((transaction) async {
-        final snapshot = await transaction.get(fieldRef);
-
-        transaction.update(bookingRef, {
-          'status': 'cancelled',
-          'refundStatus': requireRefund ? 'pending_refund' : 'none',
-          'cancelledAt': FieldValue.serverTimestamp(),
-        });
-
-        if (snapshot.exists) {
-          final currentField = SportField.fromJson(snapshot.data()!);
-          bool isUpdated = false;
-
-          for (var i = 0; i < currentField.subCourts.length; i++) {
-            if (currentField.subCourts[i].name == booking.courtName) {
-              for (var j = 0; j < currentField.subCourts[i].slots.length; j++) {
-                if (currentField.subCourts[i].slots[j].time == booking.time) {
-                  currentField.subCourts[i].slots[j] = TimeSlot(
-                    time: booking.time,
-                    isAvailable: true,
-                  );
-                  isUpdated = true;
-                  break;
-                }
-              }
-            }
-          }
-
-          if (isUpdated) {
-            transaction.update(fieldRef, {
-              'subCourts': currentField.subCourts.map((e) => e.toJson()).toList(),
-            });
-          }
-        }
+      await bookingRef.update({
+        'status': 'cancelled',
+        'refundStatus': requireRefund ? 'pending_refund' : 'none',
+        'cancelledAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      debugPrint('Lỗi khi hủy đơn và trả sân: $e');
+      debugPrint('Lỗi khi hủy đơn đặt sân: $e');
       throw Exception('Không thể hủy đơn đặt sân');
     }
   }

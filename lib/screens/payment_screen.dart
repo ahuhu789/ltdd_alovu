@@ -7,12 +7,14 @@ class PaymentScreen extends StatefulWidget {
   final SportField field;
   final String courtName;
   final String time;
+  final String bookingDate;
 
   const PaymentScreen({
     super.key,
     required this.field,
     required this.courtName,
     required this.time,
+    required this.bookingDate,
   });
 
   @override
@@ -21,6 +23,17 @@ class PaymentScreen extends StatefulWidget {
 
 class _PaymentScreenState extends State<PaymentScreen> {
   String selectedPaymentMethod = 'MOMO';
+
+  int _parsePrice(String priceStr) {
+    String cleaned = priceStr.toLowerCase()
+        .replaceAll('k', '000')
+        .replaceAll('.', '')
+        .replaceAll(',', '')
+        .replaceAll('đ', '')
+        .replaceAll('vnd', '');
+    String digits = cleaned.split('/').first.replaceAll(RegExp(r'\D'), '');
+    return int.tryParse(digits) ?? 100000;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,6 +76,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 field: widget.field,
                 courtName: widget.courtName,
                 time: widget.time,
+                bookingDate: widget.bookingDate,
                 paymentMethod: selectedPaymentMethod,
                 totalAmount: widget.field.price,
               );
@@ -97,7 +111,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Bạn đã đặt ${widget.courtName} lúc ${widget.time}. Vui lòng có mặt đúng giờ!',
+                            'Bạn đã đặt ${widget.courtName} lúc ${widget.time} ngày ${widget.bookingDate}. Vui lòng có mặt đúng giờ!',
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 24),
@@ -205,6 +219,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
                               style: const TextStyle(
                                 fontWeight: FontWeight.w500,
                                 color: Colors.blue,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '📅 Ngày: ${widget.bookingDate}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500,
+                                color: Colors.green,
                               ),
                             ),
                           ],
@@ -324,6 +346,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   ),
                   const Divider(height: 1),
                   _buildPaymentMethod(
+                    'BANK',
+                    'Chuyển khoản VietQR',
+                    Icons.account_balance,
+                    Colors.indigo,
+                  ),
+                  const Divider(height: 1),
+                  _buildPaymentMethod(
                     'CASH',
                     'Thanh toán tại sân',
                     Icons.money,
@@ -332,6 +361,89 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 ],
               ),
             ),
+            if (selectedPaymentMethod == 'BANK') ...[
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.indigo[100]!),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.indigo.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    const Text(
+                      'Quét mã VietQR để thanh toán',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.indigo,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Ngân hàng: Vietcombank (VCB)\nSố tài khoản: 1234567890\nTên tài khoản: CONG TY TNHH ALOVU',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 13, height: 1.4, fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: Colors.grey[200]!),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          'https://img.vietqr.io/image/vcb-1234567890-compact.png?amount=${_parsePrice(widget.field.price)}&addInfo=${Uri.encodeComponent("ALOVU ${widget.courtName.replaceAll(' ', '_')} ${widget.time.replaceAll(':', 'h').replaceAll(' ', '_')}")}',
+                          width: 200,
+                          height: 200,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              width: 200,
+                              height: 200,
+                              color: Colors.grey[100],
+                              alignment: Alignment.center,
+                              child: const Text(
+                                'Không thể tải mã QR\nVui lòng thử lại sau',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Số tiền: ${widget.field.price}',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Nội dung chuyển khoản đã được tích hợp tự động vào mã QR.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),

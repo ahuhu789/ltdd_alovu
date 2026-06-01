@@ -24,7 +24,7 @@ class _UserChatScreenState extends State<UserChatScreen> {
     final String uid = user!.uid;
 
     await FirebaseFirestore.instance
-        .collection('chats')
+        .collection('admin_chats')
         .doc(uid)
         .collection('messages')
         .add({
@@ -35,7 +35,7 @@ class _UserChatScreenState extends State<UserChatScreen> {
       'type': 'text',
     });
 
-    await FirebaseFirestore.instance.collection('chats').doc(uid).set({
+    await FirebaseFirestore.instance.collection('admin_chats').doc(uid).set({
       'lastMessage': content,
       'lastTimestamp': now,
     }, SetOptions(merge: true));
@@ -58,7 +58,7 @@ class _UserChatScreenState extends State<UserChatScreen> {
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
-                  .collection('chats')
+                  .collection('admin_chats')
                   .doc(user!.uid)
                   .collection('messages')
                   .orderBy('timestamp', descending: true)

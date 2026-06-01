@@ -22,9 +22,8 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
 
     final Timestamp now = Timestamp.now();
 
-    // 1. Thêm tin nhắn vào sub-collection 'messages'
     await FirebaseFirestore.instance
-        .collection('chats')
+        .collection('admin_chats')
         .doc(widget.userId)
         .collection('messages')
         .add({
@@ -36,7 +35,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     });
 
     // 2. Cập nhật lastMessage ở document cha để đẩy chat lên đầu danh sách
-    await FirebaseFirestore.instance.collection('chats').doc(widget.userId).set({
+    await FirebaseFirestore.instance.collection('admin_chats').doc(widget.userId).set({
       'lastMessage': content,
       'lastTimestamp': now,
     }, SetOptions(merge: true));
@@ -56,7 +55,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
-                  .collection('chats')
+                  .collection('admin_chats')
                   .doc(widget.userId)
                   .collection('messages')
                   .orderBy('timestamp', descending: true)

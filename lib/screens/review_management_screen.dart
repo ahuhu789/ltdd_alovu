@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/review_service.dart';
 
 class ReviewManagementScreen extends StatefulWidget {
   const ReviewManagementScreen({super.key});
@@ -9,6 +10,28 @@ class ReviewManagementScreen extends StatefulWidget {
 }
 
 class _ReviewManagementScreenState extends State<ReviewManagementScreen> {
+  Map<String, String> _fieldNames = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFieldNames();
+  }
+
+  void _loadFieldNames() {
+    FirebaseFirestore.instance.collection('sport_fields').snapshots().listen((snapshot) {
+      final newMap = <String, String>{};
+      for (var doc in snapshot.docs) {
+        newMap[doc.id] = doc.data()['name'] ?? 'Sân chưa đặt tên';
+      }
+      if (mounted) {
+        setState(() {
+          _fieldNames = newMap;
+        });
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -21,38 +44,31 @@ class _ReviewManagementScreenState extends State<ReviewManagementScreen> {
         centerTitle: true,
       ),
       body: StreamBuilder<QuerySnapshot>(
-        // QUAN TRỌNG: Lấy dữ liệu từ bảng chứa các sân (ví dụ là 'fields')
-        stream: FirebaseFirestore.instance.collection('sport_fields').snapshots(),
+        stream: FirebaseFirestore.instance.collectionGroup('reviews').snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) return const Center(child: Text('Lỗi kết nối!'));
           if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
 
-          // Gom tất cả đánh giá từ tất cả các sân vào một danh sách duy nhất
+          final docs = snapshot.data?.docs ?? [];
+          if (docs.isEmpty) {
+            return const Center(child: Text('Chưa có đánh giá nào được tìm thấy.'));
+          }
+
           List<Map<String, dynamic>> allReviews = [];
           double totalStars = 0;
 
-          for (var fieldDoc in snapshot.data!.docs) {
-            final fieldData = fieldDoc.data() as Map<String, dynamic>;
-            final String fieldName = fieldData['name'] ?? 'Sân chưa đặt tên';
-            final String fieldId = fieldDoc.id;
+          for (var doc in docs) {
+            final data = doc.data() as Map<String, dynamic>;
+            final fieldId = doc.reference.parent.parent!.id;
+            final fieldName = _fieldNames[fieldId] ?? 'Sân chưa đặt tên';
 
-            // Lấy mảng reviews từ trong document sân
-            List<dynamic> reviewsArray = fieldData['reviews'] ?? [];
+            Map<String, dynamic> review = Map<String, dynamic>.from(data);
+            review['id'] = doc.id;
+            review['fieldId'] = fieldId;
+            review['fieldName'] = fieldName;
 
-            for (var r in reviewsArray) {
-              Map<String, dynamic> review = Map<String, dynamic>.from(r);
-              // Thêm thông tin sân vào để Admin biết đánh giá này của sân nào
-              review['fieldName'] = fieldName;
-              review['fieldId'] = fieldId;
-              review['originalReview'] = r; // Giữ bản gốc để xóa sau này
-
-              allReviews.add(review);
-              totalStars += (review['rating'] ?? 0).toDouble();
-            }
-          }
-
-          if (allReviews.isEmpty) {
-            return const Center(child: Text('Chưa có đánh giá nào được tìm thấy.'));
+            allReviews.add(review);
+            totalStars += (review['rating'] ?? 0).toDouble();
           }
 
           double averageRating = totalStars / allReviews.length;
@@ -145,6 +161,21 @@ class _ReviewManagementScreenState extends State<ReviewManagementScreen> {
   // Widget hiển thị thẻ đánh giá
   Widget _buildReviewCard(Map<String, dynamic> review) {
     int star = (review['rating'] ?? 0).toInt();
+    String formattedDate = '';
+    
+    if (review['date'] != null) {
+      if (review['date'] is Timestamp) {
+        final dt = (review['date'] as Timestamp).toDate();
+        formattedDate = '${dt.day}/${dt.month}/${dt.year}';
+      } else if (review['date'] is String) {
+        final dt = DateTime.tryParse(review['date']);
+        if (dt != null) {
+          formattedDate = '${dt.day}/${dt.month}/${dt.year}';
+        } else {
+          formattedDate = review['date'];
+        }
+      }
+    }
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -171,14 +202,14 @@ class _ReviewManagementScreenState extends State<ReviewManagementScreen> {
               subtitle: Text(review['fieldName'], style: const TextStyle(fontSize: 12, color: Colors.blue)),
               trailing: IconButton(
                 icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                onPressed: () => _confirmDelete(review['fieldId'], review['originalReview']),
+                onPressed: () => _confirmDelete(review['fieldId'], review['id']),
               ),
             ),
             const Divider(),
             Row(children: [
               ...List.generate(5, (i) => Icon(i < star ? Icons.star_rounded : Icons.star_outline_rounded, color: Colors.amber, size: 20)),
               const SizedBox(width: 8),
-              Text(review['date'] ?? ''),
+              Text(formattedDate),
             ]),
             const SizedBox(height: 8),
             Text(review['comment'] ?? '', style: const TextStyle(color: Colors.black87)),
@@ -188,20 +219,24 @@ class _ReviewManagementScreenState extends State<ReviewManagementScreen> {
     );
   }
 
-  // Hàm xóa đánh giá (Vì là mảng nên phải dùng arrayRemove)
-  void _confirmDelete(String fieldId, dynamic reviewObj) {
+  // Hàm xóa đánh giá
+  void _confirmDelete(String fieldId, String reviewId) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Xóa đánh giá?'),
+        content: const Text('Hành động này sẽ xóa vĩnh viễn đánh giá và cập nhật lại điểm trung bình của sân.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Hủy')),
           TextButton(
             onPressed: () async {
-              await FirebaseFirestore.instance.collection('sport_fields').doc(fieldId).update({
-                'reviews': FieldValue.arrayRemove([reviewObj])
-              });
               Navigator.pop(context);
+              await ReviewService().deleteReview(fieldId, reviewId);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Đã xóa đánh giá thành công!'), backgroundColor: Colors.green),
+                );
+              }
             },
             child: const Text('Xóa', style: TextStyle(color: Colors.red)),
           ),

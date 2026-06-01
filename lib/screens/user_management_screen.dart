@@ -258,11 +258,13 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               final name = userData['name'] ?? 'Khách chưa có tên';
               final role = userData['role'] ?? 'user';
               final phone = userData['phone'] ?? 'Chưa cập nhật SĐT';
-              final email = userData['email'] ?? 'Chưa cập nhật Email'; // LẤY EMAIL TỪ DB
+              final email = userData['email'] ?? 'Chưa cập nhật Email';
               final avatar = userData['avatar'] ?? '';
 
               final passwordLength = (userData['password']?.toString().length) ?? 0;
               final hiddenPassword = passwordLength > 0 ? List.filled(passwordLength, '*').join() : 'Chưa có MK';
+
+              final roleText = role == 'owner' ? 'Chủ sân' : (role == 'admin' ? 'Quản trị viên' : 'Khách hàng');
 
               return Card(
                 elevation: 0,
@@ -286,7 +288,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('$role • $phone', style: TextStyle(color: Colors.green[700], fontWeight: FontWeight.w600, fontSize: 13)),
+                          Text('$roleText • $phone', style: TextStyle(color: Colors.green[700], fontWeight: FontWeight.w600, fontSize: 13)),
                           const SizedBox(height: 4),
                           Row(
                             children: [

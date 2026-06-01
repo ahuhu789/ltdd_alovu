@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
+import '../services/notification_service.dart';
 
 // Các trang của User
 import 'home_screen.dart';
@@ -27,15 +29,26 @@ class _MainDashboardState extends State<MainDashboard> {
   String _role = 'user'; // Mặc định là user
   bool _isLoading = true;
 
+  StreamSubscription<QuerySnapshot>? _bookingsSubscription;
+  final Map<String, String> _lastBookingStatus = {};
+  bool _isFirstLoad = true;
+
   @override
   void initState() {
     super.initState();
     _checkUserRole();
   }
 
+  @override
+  void dispose() {
+    _bookingsSubscription?.cancel();
+    super.dispose();
+  }
+
   Future<void> _checkUserRole() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
+      _listenToBookings();
       try {
         final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
         if (mounted) {
@@ -50,6 +63,76 @@ class _MainDashboardState extends State<MainDashboard> {
     } else {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _listenToBookings() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    _bookingsSubscription?.cancel();
+    _bookingsSubscription = FirebaseFirestore.instance
+        .collection('bookings')
+        .where('userId', isEqualTo: user.uid)
+        .snapshots()
+        .listen((snapshot) {
+      if (_isFirstLoad) {
+        // Lần đầu tải: Chỉ ghi nhận trạng thái hiện tại, không thông báo
+        for (var doc in snapshot.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final id = doc.id;
+          final status = data['status'] ?? 'pending';
+          _lastBookingStatus[id] = status;
+        }
+        _isFirstLoad = false;
+        return;
+      }
+
+      // Các lần cập nhật sau
+      for (var doc in snapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final id = doc.id;
+        final status = data['status'] ?? 'pending';
+        final fieldName = data['fieldName'] ?? 'sân thể thao';
+        final time = data['time'] ?? '';
+
+        if (_lastBookingStatus.containsKey(id)) {
+          final oldStatus = _lastBookingStatus[id];
+          if (oldStatus != status) {
+            _lastBookingStatus[id] = status;
+
+            // Nếu có sự thay đổi trạng thái
+            String title = '';
+            String body = '';
+            if (status == 'completed') {
+              title = 'Sân của bạn đã hoàn thành!';
+              body = 'Lịch đặt $fieldName lúc $time đã được hoàn thành. Hãy đánh giá sân nhé!';
+            } else if (status == 'cancelled') {
+              title = 'Lịch đặt sân đã bị hủy!';
+              body = 'Lịch đặt $fieldName lúc $time đã bị hủy bởi quản trị viên.';
+            } else if (status == 'success') {
+              title = 'Đặt sân thành công!';
+              body = 'Đơn đặt sân $fieldName lúc $time đã được xác nhận.';
+            }
+
+            if (title.isNotEmpty) {
+              NotificationService.instance.add(
+                title: title,
+                body: body,
+                type: 'booking',
+              );
+            }
+          }
+        } else {
+          // Đơn mới được đặt
+          _lastBookingStatus[id] = status;
+          NotificationService.instance.add(
+            title: 'Đặt sân thành công!',
+            body: 'Lịch đặt $fieldName lúc $time đã được tạo.',
+            type: 'booking',
+          );
+        }
+      }
+    });
   }
 
   @override
