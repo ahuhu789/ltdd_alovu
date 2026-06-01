@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -22,13 +24,15 @@ class _DetailScreenState extends State<DetailScreen> {
   final ReviewService _reviewService = ReviewService();
   double _currentRating = 0.0;
 
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+  _ratingSubscription;
+
   @override
   void initState() {
     super.initState();
     _currentRating = widget.field.rating;
-    
-    // Đăng ký lắng nghe thay đổi thực tế của rating sân từ Firestore
-    FirebaseFirestore.instance
+
+    _ratingSubscription = FirebaseFirestore.instance
         .collection('sport_fields')
         .doc(widget.field.id)
         .snapshots()
@@ -39,6 +43,39 @@ class _DetailScreenState extends State<DetailScreen> {
         });
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _ratingSubscription?.cancel();
+    super.dispose();
+  }
+
+  /// TỐI ƯU HÓA: Bộ lọc xử lý ảnh ĐỘNG 100% cho mọi tài khoản hệ thống (Không viết cứng)
+  ImageProvider? _buildAvatarImage(String avatarUrl) {
+    if (avatarUrl.isEmpty) return null;
+
+    // 1. Nếu là ảnh Base64 (Ảnh do user chụp camera hoặc chọn từ gallery máy)
+    if (avatarUrl.startsWith('data:image')) {
+      try {
+        final base64Str = avatarUrl.split(',').last;
+        return MemoryImage(base64Decode(base64Str));
+      } catch (e) {
+        debugPrint('❌ Lỗi decode base64 avatar: $e');
+        return null;
+      }
+    }
+
+    // 2. Nếu là ảnh Asset / Hệ thống (Tên file cục bộ hoặc bắt đầu bằng assets/)
+    if (avatarUrl.startsWith('assets/') || !avatarUrl.startsWith('http')) {
+      if (!avatarUrl.startsWith('assets/')) {
+        return AssetImage('assets/images/$avatarUrl');
+      }
+      return AssetImage(avatarUrl);
+    }
+
+    // 3. Nếu là đường dẫn URL mạng internet (http/https)
+    return NetworkImage(avatarUrl);
   }
 
   @override
@@ -493,69 +530,88 @@ class _DetailScreenState extends State<DetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CircleAvatar(
-                  backgroundImage: review.avatarUrl.isNotEmpty
-                      ? NetworkImage(review.avatarUrl)
-                      : null,
-                  backgroundColor: Colors.green[100],
-                  radius: 20,
-                  child: review.avatarUrl.isEmpty
-                      ? Text(
-                          review.userName.isNotEmpty
-                              ? review.userName[0].toUpperCase()
-                              : '?',
-                          style: TextStyle(
-                            color: Colors.green[800],
-                            fontWeight: FontWeight.bold,
-                          ),
-                        )
-                      : null,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              review.userName,
-                              style: const TextStyle(
+            FutureBuilder<DocumentSnapshot>(
+              future: FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(review.userId)
+                  .get(),
+              builder: (context, userSnapshot) {
+                String dynamicAvatarUrl = '';
+                String dynamicUserName = review.userName;
+
+                if (userSnapshot.hasData && userSnapshot.data!.exists) {
+                  final uData =
+                      userSnapshot.data!.data() as Map<String, dynamic>?;
+                  dynamicAvatarUrl = uData?['avatar'] ?? '';
+                  dynamicUserName = uData?['name'] ?? review.userName;
+                }
+
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CircleAvatar(
+                      backgroundImage: _buildAvatarImage(dynamicAvatarUrl),
+                      onForegroundImageError: (exception, stackTrace) {
+                        debugPrint('⚠️ Không thể load avatar: $exception');
+                      },
+                      backgroundColor: Colors.green[100],
+                      radius: 20,
+                      child: dynamicAvatarUrl.isEmpty
+                          ? Text(
+                              dynamicUserName.isNotEmpty
+                                  ? dynamicUserName[0].toUpperCase()
+                                  : '?',
+                              style: TextStyle(
+                                color: Colors.green[800],
                                 fontWeight: FontWeight.bold,
                               ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                            )
+                          : null,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  dynamicUserName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              Text(
+                                _formatDate(review.date),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
                           ),
-                          Text(
-                            _formatDate(review.date),
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                            ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: List.generate(5, (starIndex) {
+                              return Icon(
+                                starIndex < review.rating
+                                    ? Icons.star
+                                    : Icons.star_border,
+                                color: Colors.amber,
+                                size: 14,
+                              );
+                            }),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: List.generate(5, (starIndex) {
-                          return Icon(
-                            starIndex < review.rating
-                                ? Icons.star
-                                : Icons.star_border,
-                            color: Colors.amber,
-                            size: 14,
-                          );
-                        }),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+                    ),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 10),
             Text(

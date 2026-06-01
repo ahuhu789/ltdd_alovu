@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -25,7 +26,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   File? _selectedImage;
   String? _avatarLocalPath;
-
+  String? _currentAvatarUrl;
+  bool _avatarChanged = false;
   bool _isLoading = false;
 
   final Color mainGreen = const Color(0xFF43A047);
@@ -36,43 +38,69 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _loadUserData();
   }
 
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadUserData() async {
     if (user == null) return;
 
-    final doc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user!.uid)
-        .get();
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user!.uid)
+          .get();
 
-    if (doc.exists) {
-      final data = doc.data()!;
-
-      _nameController.text = data['name'] ?? user?.displayName ?? '';
-      _emailController.text = user?.email ?? '';
-      _phoneController.text = data['phone'] ?? '';
-      _avatarLocalPath = data['avatarLocalPath'];
-    } else {
-      _nameController.text = user?.displayName ?? '';
-      _emailController.text = user?.email ?? '';
-    }
-
-    if (_avatarLocalPath != null && _avatarLocalPath!.isNotEmpty) {
-      final file = File(_avatarLocalPath!);
-      if (await file.exists()) {
-        _selectedImage = file;
+      if (doc.exists) {
+        final data = doc.data()!;
+        _nameController.text = data['name'] ?? user?.displayName ?? '';
+        _emailController.text = user?.email ?? '';
+        _phoneController.text = data['phone'] ?? '';
+        _currentAvatarUrl = data['avatar'] ?? '';
+        _avatarLocalPath = data['avatarLocalPath'];
+      } else {
+        _nameController.text = user?.displayName ?? '';
+        _emailController.text = user?.email ?? '';
       }
-    }
 
-    if (mounted) setState(() {});
+      if ((_currentAvatarUrl == null || _currentAvatarUrl!.isEmpty) &&
+          _avatarLocalPath != null &&
+          _avatarLocalPath!.isNotEmpty) {
+        final file = File(_avatarLocalPath!);
+        if (await file.exists()) {
+          _selectedImage = file;
+        }
+      }
+
+      if (mounted) setState(() {});
+    } catch (e) {
+      debugPrint('❌ Lỗi tải dữ liệu user: $e');
+    }
   }
 
   Future<File> _saveImageToLocal(File imageFile) async {
     final appDir = await getApplicationDocumentsDirectory();
-
     final fileName =
         'avatar_${user!.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-
     return await imageFile.copy('${appDir.path}/$fileName');
+  }
+
+  Future<String> _convertToBase64(File imageFile) async {
+    final bytes = await imageFile.readAsBytes();
+    debugPrint('📦 Kích thước ảnh xử lý Base64: ${bytes.length} bytes');
+
+    if (bytes.length < 500 * 1024) {
+      final base64Str = base64Encode(bytes);
+      return 'data:image/jpeg;base64,$base64Str';
+    }
+
+    throw Exception(
+      'Kích thước ảnh quá lớn (${(bytes.length / 1024).toStringAsFixed(0)}KB). Vui lòng thử lại.',
+    );
   }
 
   Future<void> _pickImage() async {
@@ -83,55 +111,42 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.photo_library),
-              title: const Text('Chọn ảnh từ máy'),
+              title: const Text('Chọn ảnh từ thư viện máy'),
               onTap: () async {
                 Navigator.pop(context);
-
                 final XFile? image = await _picker.pickImage(
                   source: ImageSource.gallery,
-                  imageQuality: 75,
+                  imageQuality: 50,
+                  maxWidth: 200,
+                  maxHeight: 200,
                 );
-
-                if (image == null) return;
-
-                final savedImage = await _saveImageToLocal(File(image.path));
-
-                setState(() {
-                  _selectedImage = savedImage;
-                  _avatarLocalPath = savedImage.path;
-                });
+                _processPickedImage(image);
               },
             ),
             ListTile(
               leading: const Icon(Icons.camera_alt),
-              title: const Text('Chụp ảnh bằng camera'),
+              title: const Text('Chụp ảnh mới bằng Camera'),
               onTap: () async {
                 Navigator.pop(context);
-
                 final XFile? image = await _picker.pickImage(
                   source: ImageSource.camera,
-                  imageQuality: 75,
+                  imageQuality: 50,
+                  maxWidth: 200,
+                  maxHeight: 200,
                 );
-
-                if (image == null) return;
-
-                final savedImage = await _saveImageToLocal(File(image.path));
-
-                setState(() {
-                  _selectedImage = savedImage;
-                  _avatarLocalPath = savedImage.path;
-                });
+                _processPickedImage(image);
               },
             ),
             ListTile(
               leading: const Icon(Icons.delete, color: Colors.red),
-              title: const Text('Xóa ảnh đại diện'),
+              title: const Text('Xóa ảnh đại diện hiện tại'),
               onTap: () {
                 Navigator.pop(context);
-
                 setState(() {
                   _selectedImage = null;
                   _avatarLocalPath = null;
+                  _currentAvatarUrl = '';
+                  _avatarChanged = true;
                 });
               },
             ),
@@ -141,43 +156,62 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
+  Future<void> _processPickedImage(XFile? image) async {
+    if (image == null) return;
+    final savedImage = await _saveImageToLocal(File(image.path));
+    setState(() {
+      _selectedImage = savedImage;
+      _avatarLocalPath = savedImage.path;
+      _avatarChanged = true;
+    });
+  }
+
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
     if (user == null) return;
 
     setState(() => _isLoading = true);
 
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
     try {
+      String avatarUrl = _currentAvatarUrl ?? '';
+
+      if (_avatarChanged && _selectedImage != null) {
+        avatarUrl = await _convertToBase64(_selectedImage!);
+      } else if (_avatarChanged && _selectedImage == null) {
+        avatarUrl = '';
+      }
+
       await FirebaseFirestore.instance.collection('users').doc(user!.uid).set({
         'name': _nameController.text.trim(),
-        'email': user!.email, // luôn dùng email thật từ Firebase Auth
+        'email': user!.email,
         'phone': _phoneController.text.trim(),
+        'avatar': avatarUrl,
         'avatarLocalPath': _avatarLocalPath,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Cập nhật thông tin thành công'),
-            backgroundColor: Colors.green,
-          ),
-        );
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Cập nhật thông tin hồ sơ thành công'),
+          backgroundColor: Colors.green,
+        ),
+      );
 
-        Navigator.pop(context);
-      }
+      navigator.pop();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi cập nhật: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      debugPrint('❌ Lỗi: $e');
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Lỗi hệ thống: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-
-    if (mounted) setState(() => _isLoading = false);
   }
 
   InputDecoration _inputDecoration(String label, IconData icon) {
@@ -189,7 +223,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: Colors.grey.shade500),
+        borderSide: BorderSide(color: Colors.grey.shade400),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
@@ -202,7 +236,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (_selectedImage != null && _selectedImage!.existsSync()) {
       return FileImage(_selectedImage!);
     }
-
+    if (_currentAvatarUrl != null &&
+        _currentAvatarUrl!.startsWith('data:image')) {
+      try {
+        final base64Str = _currentAvatarUrl!.split(',').last;
+        return MemoryImage(base64Decode(base64Str));
+      } catch (e) {
+        debugPrint('❌ Lỗi decode base64 avatar: $e');
+        return null;
+      }
+    }
+    if (_currentAvatarUrl != null && _currentAvatarUrl!.isNotEmpty) {
+      return NetworkImage(_currentAvatarUrl!);
+    }
     return null;
   }
 
@@ -259,57 +305,39 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ],
                 ),
               ),
-
               const SizedBox(height: 10),
-
               const Text(
                 'Bấm vào ảnh để chọn ảnh đại diện',
                 style: TextStyle(color: Colors.grey),
               ),
-
               const SizedBox(height: 28),
-
               TextFormField(
                 controller: _nameController,
                 decoration: _inputDecoration('Họ và tên', Icons.person),
                 validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Vui lòng nhập họ và tên';
-                  }
-                  if (value.trim().length < 2) {
-                    return 'Tên phải có ít nhất 2 ký tự';
-                  }
+                  if (value == null || value.trim().isEmpty) return 'Vui lòng nhập họ và tên';
+                  if (value.trim().length < 2) return 'Tên phải có ít nhất 2 ký tự';
                   return null;
                 },
               ),
-
               const SizedBox(height: 16),
-
               TextFormField(
                 controller: _emailController,
                 readOnly: true,
                 decoration: _inputDecoration('Email', Icons.email),
               ),
-
               const SizedBox(height: 16),
-
               TextFormField(
                 controller: _phoneController,
                 keyboardType: TextInputType.phone,
                 decoration: _inputDecoration('Số điện thoại', Icons.phone),
                 validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Vui lòng nhập số điện thoại';
-                  }
-                  if (value.trim().length < 10) {
-                    return 'Số điện thoại không hợp lệ';
-                  }
+                  if (value == null || value.trim().isEmpty) return 'Vui lòng nhập số điện thoại';
+                  if (value.trim().length < 10) return 'Số điện thoại không hợp lệ';
                   return null;
                 },
               ),
-
               const SizedBox(height: 28),
-
               SizedBox(
                 width: double.infinity,
                 height: 54,
